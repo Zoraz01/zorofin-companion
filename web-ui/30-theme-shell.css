@@ -1,0 +1,1190 @@
+/* The plugin can inject this launcher into Modern, Legacy and TV headers. */
+.headerMoonfinButton { display:none!important; }
+/* Scoped shell only. Existing media artwork, card geometry, guide and player are retained. */
+html.zoro-shell-active {
+  --zoro-shell-bg:#111513; --zoro-shell-panel:#1b211e; --zoro-shell-line:#39423c;
+  --zoro-shell-text:#f5f7f5; --zoro-shell-muted:#bbc5bd; --zoro-shell-green:#72e79b;
+  --zoro-shell-footer:0px; --zoro-shell-header:72px; --zoro-shell-inset:0px;
+}
+.zoroGlobalNav { display:none; }
+html.zoro-shell-active .zoroGlobalNav {
+  position:fixed; z-index:1001; inset:0 0 auto; height:var(--zoro-shell-header);
+  display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:0 4%; gap:20px;
+  box-sizing:border-box; color:var(--zoro-shell-text); font-family:inherit; pointer-events:none;
+}
+/* Some plugins target the first nav element; keep their drawer additions out of this owned shell. */
+html.zoro-shell-active #zoroGlobalNav > :not(.zoroNavMain):not(.zoroNavProfile):not(.zoroBrand),
+html.zoro-shell-active #zoroGlobalNav :is(.zoroNavMain,.zoroNavProfile) > :not(a[data-destination]),
+html.zoro-shell-active #zoroGlobalNav a:not([data-destination]):not(.zoroBrand) { display:none!important; }
+.zoroNavMain { grid-column:2; display:flex; align-items:center; gap:8px; }
+.zoroNavProfile { grid-column:1; justify-self:start; }
+html.zoro-shell-authenticated .mainDrawerButton,html.zoro-shell-authenticated #reviewMenu,html.zoro-shell-authenticated .zoroNavToggle { display:none!important; }
+html.zoro-shell-active .zoroShellPage { margin-inline-start:var(--zoro-shell-inset)!important; width:calc(100% - var(--zoro-shell-inset))!important; box-sizing:border-box; }
+html.zoro-shell-active .zoroGlobalNav a { pointer-events:auto; display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; padding:0 18px; border-radius:999px; text-decoration:none; color:var(--zoro-shell-muted); font-size:16px; font-weight:600; white-space:nowrap; border:1px solid transparent; transition:background-color .15s,color .15s; }
+html.zoro-shell-active .zoroGlobalNav a[aria-current=page] { background:#f5f7f5; color:#141b16; }
+html.zoro-shell-active .zoroGlobalNav a:hover { color:#fff; background:#ffffff20; }
+html.zoro-shell-active .zoroGlobalNav a[aria-current=page]:hover { background:#dcebe1; color:#141b16; }
+html.zoro-shell-active .zoroNavProfile a { width:48px; min-width:48px; padding:0!important; border:0!important; border-radius:50%; background:transparent!important; }
+@media(min-width:600px) { html.zoro-shell-active .skinHeader .headerLeft { visibility:hidden; } .zoroNavMain .zoroShellIcon { display:none; } }
+.layout-tv.zoro-shell-active .skinHeader .headerLeft { visibility:hidden; }
+.layout-tv .zoroNavMain .zoroShellIcon { display:none; }
+.zoroShellIcon { font-size:24px; line-height:1; flex:0 0 auto; }
+/* Jellyfin's native profile button can have only an empty, CSS-drawn icon.
+   Hide that known duplicate even without a label or after a header remount. */
+html.zoro-shell-active .skinHeader .headerUserButton,
+html.zoro-shell-active .skinHeader .zoroShellRelocated { display:none!important; }
+html.zoro-shell-home .skinHeader .headerTabs { display:none!important; }
+/* Context views live in one compact page selector. Native tab handlers stay attached.
+   Keep the zero-height host measurable so the existing Live TV policy can inspect its tabs. */
+html.zoro-shell-context-tabs .skinHeader .headerTabs { height:0!important; min-height:0!important; padding:0!important; margin:0!important; border:0!important; overflow:hidden!important; pointer-events:none; }
+html.zoro-shell-context-tabs .skinHeader .headerTabs .emby-tabs-slider { display:none!important; }
+html.zoro-shell-context-tabs .zoroContextPage { padding-top:calc(var(--zoro-shell-header) + 24px)!important; }
+.zoroContextToolbar { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:0 3.3%; margin:0 0 28px; }
+.zoroContextToolbar h1 { font-size:clamp(28px,2.4vw,44px); line-height:1.15; letter-spacing:-.035em; margin:0; }
+.zoroContextSelect { min-height:48px; max-width:60%; padding:10px 36px 10px 16px; border:1px solid #536b5c; border-radius:12px; color:#f5f7f5; background:#1b281f; font:inherit; cursor:pointer; }
+.zoroContextSelect:focus-visible { outline:3px solid #fff; outline-offset:3px; }
+.layout-tv .zoroContextSelect { min-height:60px; font-size:clamp(20px,1.4vw,40px); }
+html.zoro-shell-home .homePage { padding-top:calc(var(--zoro-shell-header) + 12px)!important; }
+html.zoro-shell-active .homePage .zoroBrowseCategories { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:12px 3.3% 18px; box-sizing:border-box; }
+.zoroBrowseCategories a { display:inline-flex; justify-content:center; align-items:center; padding:10px 20px; min-height:44px; box-sizing:border-box; border:1px solid #536058; border-radius:999px; background:linear-gradient(145deg,#343f37,#242b26); color:#f5f7f5; font:inherit; text-decoration:none; }
+.zoroBrowseCategories a:hover { background:#39483e; }
+html.zoro-shell-active .zoroGlobalNav a:focus-visible, .zoroBrowseCategories a:focus-visible, .zoroProfileShortcut:focus-visible, .zoroSearchRequestsLink:focus-visible { outline:3px solid #fff!important; outline-offset:3px; box-shadow:0 0 0 6px #285b3a; }
+html.zoro-shell-active .zoroGlobalNav[hidden] { display:none; }
+html.zoro-shell-active #zoroRequestsHub { top:var(--zoro-shell-header)!important; bottom:0!important; left:var(--zoro-shell-inset)!important; }
+/* Requests is its own page. Inert/aria-hidden alone do not stop Home painting
+   through the translucent header. Keep native layout/scroll state for Back,
+   including rows and the Media Bar attached after Requests has opened. */
+html.zoro-requests-open .mainAnimatedPages,
+html.zoro-requests-open .mainAnimatedPages *,
+html.zoro-requests-open #slides-container,
+html.zoro-requests-open #slides-container *,
+html.zoro-requests-open .backgroundContainer,
+html.zoro-requests-open .backdropContainer {
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+html.zoro-requests-open .mainAnimatedPages,
+html.zoro-requests-open #slides-container { opacity:0!important; }
+html.zoro-requests-open .skinHeader,
+html.zoro-ui.zoro-requests-open.zoro-shell-active .skinHeader { background:#101214!important; }
+
+html.zoro-shell-active #zoroRequestsHub .rh-heading { align-items:center; justify-content:space-between; gap:24px; }
+html.zoro-shell-active #zoroRequestsHub .rh-search { max-width:520px; }
+html.zoro-shell-active #zoroRequestsHub .rh-tab { border-radius:999px; }
+/* All four sections fit the responsive row/grid. Let the remote focus outline
+   extend beyond the tabs instead of clipping it into two disconnected arcs. */
+html.zoro-shell-active #zoroRequestsHub .rh-tabs { overflow:visible; }
+html.zoro-shell-active #searchPage,html.zoro-shell-active .searchPage { padding-top:calc(var(--zoro-shell-header) + 20px)!important; padding-bottom:calc(var(--zoro-shell-footer) + 32px)!important; }
+html.zoro-shell-active .zoroSearchHeading,html.zoro-shell-active .zoroProfileHeading { margin:0 0 24px; font-size:clamp(28px,2.4vw,44px); letter-spacing:-.035em; line-height:1.15; }
+html.zoro-shell-active #searchPage .jellyseerr-section,html.zoro-shell-active .searchPage .jellyseerr-section { display:none!important; }
+.zoroSearchRequestsLink { display:inline-flex; align-items:center; gap:12px; min-height:48px; margin-top:20px; padding:10px 20px; color:#edf3ef; background:#ffffff08; border:1px solid #ffffff30; text-decoration:none; font-size:15px; font-weight:550; border-radius:999px; }
+.zoroSearchRequestsLink:hover { background:#ffffff18; border-color:#ffffff60; }
+.zoroSearchRequestsLink .zoroShellIcon { font-size:20px; }
+.layout-tv .zoroSearchRequestsLink { min-height:60px; font-size:22px; padding:14px 24px; }
+html.zoro-shell-profile #myPreferencesMenuPage { padding-top:calc(var(--zoro-shell-header) + 20px)!important; padding-bottom:calc(var(--zoro-shell-footer) + 32px)!important; }
+html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent { max-width:960px!important; width:100%; color:#f5f7f5; }
+html.zoro-shell-profile #myPreferencesMenuPage .listItem-border { background:#1b211e!important; border:1px solid #39423c!important; border-radius:12px; margin:0 0 8px!important; overflow:hidden; }
+html.zoro-shell-profile #myPreferencesMenuPage .listItem { min-height:56px; padding:12px 18px; box-sizing:border-box; }
+html.zoro-shell-profile #myPreferencesMenuPage .listItemIcon { background:transparent!important; color:#a6dfb9!important; }
+.zoroProfileShortcuts { display:grid; gap:8px; margin-top:24px; }
+.zoroProfileShortcut { display:flex; align-items:center; gap:14px; min-height:56px; padding:12px 18px; box-sizing:border-box; border:1px solid #39423c; border-radius:12px; background:#1b211e; color:#f5f7f5; font:inherit; text-align:left; cursor:pointer; text-decoration:none; }
+.zoroProfileShortcut .zoroShellIcon:last-child { margin-left:auto; color:#bbc5bd; }
+.zoroProfileShortcut:hover { background:#28332b; }
+.zoroNotificationBackdrop { position:fixed; inset:0; z-index:100000; display:grid; place-items:center; padding:24px; background:#000a; color:#f5f7f5; box-sizing:border-box; }
+.zoroNotificationPanel { width:min(640px,100%); max-height:85vh; max-height:85dvh; overflow:auto; padding:24px; background:#141a16; border:1px solid #435248; border-radius:20px; box-sizing:border-box; }
+.zoroNotificationTop { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.zoroNotificationTop h2 { margin:0; }
+.zoroNotificationItem { padding:20px 0; border-top:1px solid #39423c; }
+.zoroNotificationItem h3 { margin:0 0 8px; font-size:1.1em; }
+.zoroNotificationItem p { line-height:1.5; overflow-wrap:anywhere; }
+.zoroNotificationContent > button { margin-top:16px; }
+html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent>.btnLogout,html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent>#logout { display:block; width:100%; margin-top:32px!important; }
+.zoroHomeActions,.zoroHeaderActions { display:flex; gap:4px; }
+.zoroHomeAction { display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:transparent; color:#e5ede8; cursor:pointer; }
+.zoroHomeAction .zoroShellIcon { font-size:22px; }
+.zoroHomeAction:hover { background:#ffffff14; }
+.zoroHomeAction:focus-visible { outline:3px solid #fff; outline-offset:2px; }
+
+@media(min-width:600px) and (max-width:1000px) {
+  html.zoro-shell-active .zoroGlobalNav { gap:8px; padding-inline:3%; grid-template-columns:auto 1fr 144px; }
+  .zoroNavMain { justify-content:center; gap:0; }
+  html.zoro-shell-active .zoroGlobalNav a { font-size:14px; padding-inline:10px; }
+}
+@media(max-width:599px) {
+  html.zoro-shell-active:not(.layout-tv) { --zoro-shell-inset:0px; scroll-padding-bottom:calc(var(--zoro-shell-footer) + 16px); }
+  html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav { display:flex; align-items:center; width:auto; max-width:340px; margin-inline:auto; left:28px; right:28px; top:auto; bottom:max(8px,env(safe-area-inset-bottom)); height:60px; padding:5px; gap:4px; border:1px solid #64726855; border-radius:999px; background:linear-gradient(135deg,#313b32b8,#161c19c7); box-shadow:0 6px 20px #0004,inset 0 1px #ffffff10; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); pointer-events:auto; }
+  .zoroNavMain { display:contents; }
+  html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav a { box-sizing:border-box; flex:1 1 0; flex-direction:column; justify-content:center; align-self:center; gap:3px; height:48px; min-height:48px; min-width:0; margin:0; padding:3px 1px; border:0; border-radius:999px; font-size:10px; line-height:1.15; }
+  html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav .zoroShellIcon { font-size:20px; }
+  html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav a[aria-current=page] { background:linear-gradient(145deg,#ffffff16,#ffffff0b); color:#fff; box-shadow:inset 0 1px 0 #ffffff0a; }
+  html.zoro-shell-active .mainAnimatedPages > .page:not(.hide),html.zoro-shell-active .homePage { padding-bottom:calc(var(--zoro-shell-footer) + 24px)!important; }
+  html.zoro-shell-active #zoroRequestsHub .rh-heading { flex-direction:column; align-items:stretch; gap:16px; }
+  .zoroBrowseCategories a { padding-inline:17px; }
+  /* The dock overlays the viewport; only the end of each scroller gets clearance. */
+  html.zoro-shell-active #zoroRequestsHub { scroll-padding-bottom:calc(var(--zoro-shell-footer) + 16px); }
+  html.zoro-shell-active #zoroRequestsHub .rh-main { padding-bottom:calc(var(--zoro-shell-footer) + 24px); }
+  html.zoro-shell-active .mainAnimatedPages { scroll-padding-bottom:calc(var(--zoro-shell-footer) + 16px); }
+  html.zoro-shell-profile #myPreferencesMenuPage { padding-inline:28px!important; }
+  html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent { max-width:420px!important; }
+  html.zoro-shell-profile #myPreferencesMenuPage .listItem-border { border:0!important; border-bottom:1px solid #ffffff14!important; border-radius:0; background:transparent!important; padding:0; margin:0!important; }
+  html.zoro-shell-profile #myPreferencesMenuPage .listItem { min-height:52px; padding:10px 2px; gap:14px; }
+  html.zoro-shell-profile #myPreferencesMenuPage .listItemIcon { font-size:20px; }
+  html.zoro-shell-profile .zoroProfileShortcuts { gap:0; margin-top:20px; }
+  html.zoro-shell-profile .zoroProfileShortcut { min-height:52px; padding:10px 2px; border:0; border-bottom:1px solid #ffffff14; border-radius:0; background:transparent; font-size:15px; }
+  html.zoro-shell-profile .zoroProfileShortcut .zoroShellIcon { font-size:20px; }
+  html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent>.btnLogout,html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent>#logout { width:auto; min-width:120px; min-height:48px; margin:28px auto 0!important; border:1px solid #ffffff24!important; border-radius:999px; padding:10px 22px; }
+  .zoroHomeHeading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 4%; }
+  .zoroHomeHeading h1 { font-size:28px; line-height:1.2; letter-spacing:-.04em; margin:0; }
+  .zoroNotificationBackdrop { padding:12px; }
+  .zoroNotificationPanel { padding:20px; }
+}
+html.layout-tv.zoro-shell-active .zoroHeaderActions .zoroHomeAction { min-width:60px; min-height:60px; width:60px; height:60px; }
+html.layout-tv.zoro-shell-active .zoroHeaderActions .zoroShellIcon { font-size:28px; }
+.layout-tv.zoro-shell-active .skinHeader { min-height:clamp(88px,6vw,180px); }
+html.layout-tv.zoro-shell-active { --zoro-shell-inset:0px; }
+html.layout-tv.zoro-shell-active .zoroGlobalNav a { min-height:clamp(60px,4vw,120px); font-size:clamp(20px,1.25vw,40px); padding-inline:clamp(18px,1.5vw,48px); }
+.layout-tv .zoroBrowseCategories a,.layout-tv .zoroProfileShortcut { min-height:clamp(60px,4vw,120px); font-size:clamp(18px,1.25vw,36px); }
+.layout-tv .zoroGlobalNav a:focus,.layout-tv .zoroBrowseCategories a:focus,.layout-tv .zoroProfileShortcut:focus { outline:4px solid #fff!important; outline-offset:4px; }
+html.layout-tv.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent { max-width:1200px!important; }
+html.layout-tv.zoro-shell-profile #myPreferencesMenuPage .listItem { min-height:clamp(60px,4vw,120px); }
+@media(prefers-reduced-motion:reduce) { .zoroGlobalNav a,.zoroBrowseCategories a { transition:none!important; scroll-behavior:auto; } }
+
+/* Keep Requests controls on compact rows where the viewport allows. */
+html.zoro-shell-active #zoroRequestsHub .rh-activity-controls { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px 24px; margin-bottom:24px; }
+html.zoro-shell-active #zoroRequestsHub .rh-activity-controls>nav { margin:0; padding:0; border:0; }
+html.zoro-shell-active #zoroRequestsHub .rh-activity-controls button { border-radius:999px; border-color:transparent; }
+/* Both activity views own this same switch, regardless of their content wrapper. */
+html.zoro-shell-active #zoroRequestsHub .rh-activity-switch { display:flex; gap:8px; width:max-content; max-width:100%; }
+html.zoro-shell-active #zoroRequestsHub .rh-activity-switch .rh-button { flex:0 0 auto; min-height:48px; padding:10px 18px; border:1px solid transparent; border-radius:999px; background:transparent; color:var(--rh-muted); white-space:nowrap; line-height:1.3; }
+html.zoro-shell-active #zoroRequestsHub .rh-activity-switch .rh-button[aria-current=page] { background:#25372d; color:var(--rh-green); }
+html.zoro-shell-active #zoroRequestsHub .rh-activity-switch .rh-button:hover { background:#ffffff0d; }
+html.zoro-shell-active #zoroRequestsHub .rh-activity-switch .rh-button:focus-visible { outline:2px solid #d9f8e3; outline-offset:2px; }
+html.layout-tv.zoro-shell-active #zoroRequestsHub .rh-activity-switch .rh-button { min-height:60px; }
+html.zoro-shell-active #zoroRequestsHub .rh-activity h2 { display:flex; align-items:center; gap:16px; }
+@media(min-width:1100px) {
+  html.zoro-shell-active #zoroRequestsHub .rh-main { display:grid; grid-template-columns:minmax(0,1fr) minmax(240px,420px); gap:0 32px; }
+  html.zoro-shell-active #zoroRequestsHub .rh-heading { grid-column:2; grid-row:1; margin:0; }
+  html.zoro-shell-active #zoroRequestsHub .rh-tabs { grid-column:1; grid-row:1; border:0; padding:0; margin:0; align-items:center; }
+  html.zoro-shell-active #zoroRequestsHub .rh-content { grid-column:1/-1; grid-row:3; margin-top:24px; }
+  html.zoro-shell-active #zoroRequestsHub .rh-notice { grid-column:1/-1; grid-row:2; }
+}
+
+/* Mobile Search owns its title and field; the dock provides navigation. */
+@media(max-width:599px){
+ html.zoro-shell-search:not(.layout-tv) .skinHeader { display:none!important; }
+ html.zoro-shell-search:not(.layout-tv) #searchPage { padding-top:calc(16px + env(safe-area-inset-top,0px))!important; }
+ html.zoro-shell-search:not(.layout-tv) .zoroSearchFooter { padding-bottom:calc(var(--zoro-shell-footer) + 16px); }
+ html.zoro-shell-search:not(.layout-tv) .zoroSearchHeading { margin-bottom:16px; }
+ html.zoro-shell-search:not(.layout-tv) .searchFieldsInner { position:relative; }
+ html.zoro-shell-search:not(.layout-tv) .searchFields .inputLabel:empty { display:none; }
+ html.zoro-shell-search:not(.layout-tv) .searchfields-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); margin:0; font-size:22px; line-height:1; pointer-events:none; }
+ html.zoro-shell-search:not(.layout-tv) .searchFields input.emby-input { box-sizing:border-box; min-height:48px; padding-left:44px; font-size:16px; }
+}
+
+/* Requests is an escape hatch after the library results, never a competing
+   action beside the search field. Empty results naturally leave it in view. */
+.zoroSearchFooter { padding:32px 3.3% 16px; }
+.zoroSearchFooter .zoroSearchRequestsLink { margin-top:0; }
+
+@media(max-width:599px){
+ html.zoro-shell-active:not(.layout-tv) .homePage #homeTab .emby-scrollbuttons { display:none!important; }
+}
+
+/* One lightweight Jade initial on every device. Keep focus on the circle,
+   with an inset mobile selection pill still owned by the dock. */
+html.zoro-shell-active .zoroProfileAvatar { position:relative; display:grid!important; place-items:center; flex:0 0 auto; width:40px; height:40px; padding:0; box-sizing:border-box; overflow:hidden; border:1px solid #79bb9166; border-radius:50%; background:#24543e; color:#e6ffef; font:550 21px/1 Inter,system-ui,sans-serif; letter-spacing:-.04em; box-shadow:none; }
+html.zoro-shell-active .zoroNavProfile a[aria-current=page] .zoroProfileAvatar { border-color:#a8d3b8; }
+html.zoro-shell-active .zoroGlobalNav a[data-destination=profile]:focus-visible,
+html.layout-tv.zoro-shell-active .zoroGlobalNav a[data-destination=profile]:focus { outline:none!important; box-shadow:none!important; }
+html.zoro-shell-active .zoroGlobalNav a[data-destination=profile]:focus-visible .zoroProfileAvatar,
+html.layout-tv.zoro-shell-active .zoroGlobalNav a[data-destination=profile]:focus .zoroProfileAvatar { outline:2px solid #f2f5f2; outline-offset:5px; }
+html.layout-tv.zoro-shell-active .zoroProfileAvatar { width:clamp(48px,3vw,80px); height:clamp(48px,3vw,80px); font-size:clamp(26px,1.6vw,44px); }
+html.layout-tv.zoro-shell-active .zoroNavProfile a { width:auto; min-width:68px; }
+@media(max-width:599px){
+ html.zoro-shell-active:not(.layout-tv) .zoroNavMain .zoroProfileAvatar { width:24px; height:24px; font-size:14px; }
+}
+
+/* Desktop branding and account control; phone and TV retain their own navigation. */
+@media(min-width:600px){
+ html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav { grid-template-columns:minmax(0,1fr) auto minmax(190px,1fr); }
+ html.zoro-shell-active:not(.layout-tv) #zoroGlobalNav > .zoroBrand { display:flex!important; grid-column:1; grid-row:1; justify-self:start; padding:0; border:0; border-radius:0; background:transparent; }
+ html.zoro-shell-active:not(.layout-tv) .zoroBrand img { display:block; width:clamp(120px,14vw,190px); max-width:100%; height:40px; object-fit:contain; object-position:left center; }
+ html.zoro-shell-active:not(.layout-tv) .zoroNavMain { grid-row:1; }
+ html.zoro-shell-active:not(.layout-tv) .zoroNavProfile { position:absolute; top:50%; right:3%; transform:translateY(-50%); }
+ html.zoro-shell-active:not(.layout-tv) .headerRight { padding-right:52px; }
+}
+@media(min-width:600px) and (max-width:1000px){
+ html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav { grid-template-columns:100px minmax(0,1fr) 164px; gap:6px; }
+ html.zoro-shell-active:not(.layout-tv) .zoroBrand img { width:100px; }
+ html.zoro-shell-active:not(.layout-tv) .zoroNavMain a { font-size:12px; padding-inline:5px; }
+ html.zoro-shell-active:not(.layout-tv) .headerRight { padding-right:48px; }
+ html.zoro-shell-active:not(.layout-tv) .headerRight .headerSearchButton,html.zoro-shell-active:not(.layout-tv) .zoroHeaderActions button { width:36px!important; min-width:36px!important; }
+}
+
+/* Profile shortcuts can arrive after the room screen renders. Keep the whole
+   destination exclusive, including late-added or re-created shell controls. */
+.readOnlyContent.zoro-watch-together-open > :not(#zoroWatchTogetherPage) { display:none!important; }
+/* A standalone entry must fill the same settings column as native rows. */
+.zoroWatchTogetherEntry { width:100%;margin:8px 0; }
+.zoroWatchTogetherEntry > .material-icons { color:#9bd3ad;font-size:22px;flex-shrink:0; }
+.zoroWatchTogetherEntry > .material-icons:last-child { margin-left:auto;color:#bbc5bd; }
+.zoroGroupRowCopy { min-width:0;overflow-wrap:anywhere; }
+#zoroWatchTogetherPage { box-sizing:border-box;padding-bottom:24px; }
+#zoroWatchTogetherPage [hidden] { display:none!important; }
+#zoroWatchTogetherPage .zoroGroupSectionHeading { display:flex;align-items:center;justify-content:space-between;gap:16px;margin:26px 0 14px; }
+#zoroWatchTogetherPage .zoroGroupSectionHeading h2 { flex:1;min-width:0;margin:0;font-size:17px; }
+#zoroWatchTogetherPage .zoroGroupButton.zoroGroupRefresh { flex:0 0 auto;width:auto;min-width:44px;min-height:44px;margin:0;padding:8px 14px; }
+#zoroWatchTogetherPage .zoroGroupStatus { font-size:14px;color:#bbc5bd; }
+@media(max-width:599px) {
+  html.zoro-shell-profile .zoroWatchTogetherEntry { margin:0; }
+  #zoroWatchTogetherPage { padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
+}
+/* Group management occupies the Profile page; it never overlays media. */
+.zoroGroupRowCopy { display:flex;flex:1;flex-direction:column;gap:4px; }
+.zoroGroupRowName { color:#bbc5bd;font-size:.85em; }
+.zoroGroupRowName:empty { display:none; }
+#zoroWatchTogetherPage { max-width:720px;margin:0 auto;color:#f5f7f5; }
+#zoroWatchTogetherPage h1 { font-size:clamp(26px,2.4vw,36px);line-height:1.2;letter-spacing:-.03em;margin:16px 0 12px; }
+#zoroWatchTogetherPage h2 { margin:0 0 8px;font-size:20px;line-height:1.3;overflow-wrap:anywhere; }
+#zoroWatchTogetherPage .zoroGroupSectionTitle { margin:26px 0 14px;font-size:17px; }
+#zoroWatchTogetherPage p { line-height:1.5;margin:6px 0; }
+#zoroWatchTogetherPage .zoroGroupMuted { color:#bbc5bd; }
+#zoroWatchTogetherPage .zoroGroupCard { padding:20px;margin:14px 0;border:1px solid #39423c;border-radius:16px;background:#1b211e; }
+#zoroWatchTogetherPage .zoroGroupButton { display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin:16px 0 0;padding:12px 20px;border:1px solid #39423c;border-radius:999px;background:#1b211e;color:#f5f7f5;font:inherit;cursor:pointer; }
+#zoroWatchTogetherPage .zoroGroupButton:focus-visible { outline:2px solid #f5f7f5;outline-offset:4px; }
+#zoroWatchTogetherPage .zoroGroupButton:disabled { opacity:.55;cursor:wait; }
+#zoroWatchTogetherPage .zoroGroupPrimary { background:#72e79b;border-color:#72e79b;color:#13241a; }
+#zoroWatchTogetherPage .zoroGroupBack { justify-content:flex-start;width:auto;background:transparent;border:0;color:#bbc5bd;padding-left:0;margin:0; }
+#zoroWatchTogetherPage .zoroGroupPerson { display:flex;align-items:center;gap:12px;min-height:53px;border-bottom:1px solid #ffffff14;overflow-wrap:anywhere; }
+#zoroWatchTogetherPage .zoroGroupInitial { flex-shrink:0;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#293b30;color:#cbe5d3; }
+#zoroWatchTogetherPage .zoroGroupEmpty { text-align:center;color:#bbc5bd;padding:32px 0; }
+#zoroWatchTogetherPage .zoroGroupField { display:block;margin:24px 0 8px;color:#bbc5bd; }
+#zoroWatchTogetherPage input { box-sizing:border-box;width:100%;min-height:48px;padding:14px;border:1px solid #39423c;border-radius:12px;background:#1b211e;color:#f5f7f5;font:inherit;font-size:16px; }
+#zoroWatchTogetherPage input:focus-visible { outline:2px solid #f5f7f5;outline-offset:3px; }
+#zoroWatchTogetherPage .zoroGroupError { margin-top:18px;color:#f4adab; }
+.layout-tv #zoroWatchTogetherPage { max-width:1000px;font-size:22px; }
+.layout-tv #zoroWatchTogetherPage .zoroGroupButton { min-height:64px; }
+.layout-tv #zoroWatchTogetherPage .zoroGroupButton:focus { outline:3px solid #f5f7f5;outline-offset:4px; }
+/* The native handler stays installed; Profile is the sole group entry. */
+.skinHeader .headerSyncButton,.skinHeader .headerSyncPlayButton,.skinHeader button[title="SyncPlay"],.skinHeader button[aria-label="SyncPlay"] { display:none!important; }
+
+/* Shared presentation theme. Native artwork,
+   scrollers, guide, playback and plugin actions retain their existing handlers. */
+html.zoro-ui { --zoro-native-bg:#101512; --zoro-native-muted:#bec8c1; --zoro-native-gutter:4%; }
+html.zoro-ui body,html.zoro-ui .backgroundContainer:not(.backgroundContainer-transparent) { background:var(--zoro-native-bg)!important; }
+/* Jellyfin places this layer above video and makes it transparent for playback.
+   Preserve that state; a forced theme background otherwise hides decoded frames. */
+html.zoro-ui .backgroundContainer.backgroundContainer-transparent { background:transparent!important; }
+html.zoro-ui.zoro-shell-active .skinHeader { background:linear-gradient(#101512f5,#101512e6)!important; backdrop-filter:none!important; -webkit-backdrop-filter:none!important; box-shadow:none!important; border:0!important; }
+html.zoro-ui .headerTop { min-height:72px; padding:0 3%; box-sizing:border-box; }
+html.zoro-ui .headerRight { gap:2px; }
+html.zoro-ui .zoroShellPage .sectionTitle { font-weight:650; letter-spacing:-.025em; }
+html.zoro-ui .homeSectionsContainer { top:auto!important; margin-top:0!important; padding-top:0!important; gap:16px; }
+html.zoro-ui .homeSectionsContainer>.verticalSection { margin-block:16px 24px!important; }
+html.zoro-ui .homeSectionsContainer>.MyMedia,
+html.zoro-ui .homeSectionsContainer>.smalllibrarytiles,
+html.zoro-ui .homeSectionsContainer>.librarytiles,
+html.zoro-ui .homeSectionsContainer>.Discover,
+html.zoro-ui .homeSectionsContainer>.DiscoverMovies,
+html.zoro-ui .homeSectionsContainer>.DiscoverTV,
+html.zoro-ui .homeSectionsContainer>.UpcomingShows,
+html.zoro-ui .homeSectionsContainer>.UpcomingMovies { display:none!important; }
+html.zoro-ui #myPreferencesMenuPage .zoroProfileHeading { display:none; }
+html.zoro-ui #myPreferencesMenuPage .padded-top { padding-top:0!important; }
+html.zoro-ui #myPreferencesMenuPage .readOnlyContent { max-width:720px!important; }
+html.zoro-ui #myPreferencesMenuPage .verticalSection { margin-bottom:24px; }
+html.zoro-ui #myPreferencesMenuPage .headerUsername { font-size:20px; }
+html.zoro-ui #myPreferencesMenuPage [data-initial] { display:flex; align-items:center; gap:18px; margin:4px 0 24px; font-size:28px; }
+html.zoro-ui #myPreferencesMenuPage [data-initial]:before { content:attr(data-initial); display:grid; place-items:center; width:64px; height:64px; border-radius:18px; background:linear-gradient(135deg,#37654d,#214659); color:#e1f5e9; font-size:30px; }
+html.zoro-ui #myPreferencesMenuPage .btnLogout .listItem { justify-content:center; }
+html.zoro-ui #myPreferencesMenuPage .btnLogout .listItemBody { flex:0 1 auto; }
+html.zoro-ui [data-zoro-exit-trial] { margin-top:20px; width:100%; }
+/* One cinematic banner. Keep Media Bar's real slide, image/video and native play controls. */
+html.zoro-ui #page-loader { display:none!important; }
+html.zoro-ui:not(.zoro-native-home) #slides-container { display:none!important; }
+html.zoro-ui.zoro-native-home #slides-container { position:absolute!important; top:var(--zoro-shell-header,72px)!important; left:0!important; width:100%!important; height:clamp(430px,38vw,740px)!important; margin:0!important; border-radius:0!important; z-index:2!important; overflow:hidden; }
+html.zoro-ui.zoro-native-home .homePage { padding-top:calc(var(--zoro-shell-header,72px) + clamp(430px,38vw,740px))!important; }
+html.zoro-ui #slides-container .slide { height:100%!important; }
+html.zoro-ui #slides-container .backdrop-container { position:absolute!important; inset:0!important; width:100%!important; height:100%!important; }
+html.zoro-ui #slides-container .backdrop { width:100%!important; height:100%!important; object-fit:cover; }
+html.zoro-ui #slides-container .gradient-overlay { position:absolute!important; inset:0!important; width:100%!important; height:100%!important; background:linear-gradient(0deg,#101512,transparent 55%),linear-gradient(90deg,#101512f5 3%,#1015129c 40%,#10151205 78%)!important; }
+html.zoro-ui #slides-container .logo-container { position:absolute!important; left:4%!important; top:auto!important; bottom:51%!important; width:40%!important; max-width:570px!important; height:28%!important; margin:0!important; display:flex!important; align-items:flex-end!important; }
+html.zoro-ui #slides-container .logo { max-width:100%!important; max-height:100%!important; width:auto!important; height:auto!important; object-fit:contain; object-position:left bottom; }
+html.zoro-ui #slides-container .info-container { left:4%!important; top:52%!important; bottom:auto!important; font-size:15px!important; }
+html.zoro-ui #slides-container .plot-container { left:4%!important; top:60%!important; bottom:auto!important; width:42%!important; max-width:600px!important; font-size:16px!important; line-height:1.5!important; }
+html.zoro-ui #slides-container .plot { display:-webkit-box!important; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+html.zoro-ui #slides-container .featured-content,html.zoro-ui #slides-container .genre { display:none!important; }
+html.zoro-ui #slides-container .button-container { left:4%!important; top:auto!important; bottom:12%!important; display:flex!important; flex-direction:row!important; align-items:center; gap:12px!important; transform:none!important; }
+html.zoro-ui #slides-container .button-container button { min-height:48px!important; height:48px!important; padding:0 22px!important; border-radius:999px!important; box-shadow:none!important; font-size:16px!important; }
+html.zoro-ui #slides-container .button-container .play-button { order:-1; background:#f4f7f5!important; color:#101512!important; }
+html.zoro-ui #slides-container .button-container .detail-button,html.zoro-ui #slides-container .button-container .favorite-button { min-width:48px!important; width:48px!important; padding:0!important; border:1px solid #ffffff44!important; background:#ffffff17!important; color:white!important; }
+html.zoro-ui #slides-container .dots-container { bottom:8%!important; right:4%!important; left:auto!important; width:auto!important; }
+html.zoro-ui #slides-container .slide-counter { font-size:13px; opacity:.7; }
+html.zoro-ui #slides-container .media-bar-progress-bar { display:none; }
+html.zoro-ui #slides-container .pause-button,html.zoro-ui #slides-container .mute-button { top:auto!important; bottom:18%!important; width:40px!important; height:40px!important; border:1px solid #ffffff33; border-radius:50%; background:#10151288!important; }
+html.zoro-ui #slides-container .pause-button { right:calc(4% + 50px)!important; }
+html.zoro-ui #slides-container .mute-button { right:4%!important; }
+html.zoro-ui #slides-container :focus-visible { outline:3px solid #fff!important; outline-offset:4px; }
+@media(max-width:599px){
+ html.zoro-ui .headerTop { min-height:64px; }
+ html.zoro-ui #myPreferencesMenuPage .padded-left,html.zoro-ui #myPreferencesMenuPage .padded-right { padding-inline:0!important; }
+ html.zoro-ui #myPreferencesMenuPage .listItemBodyText { font-size:15px!important; }
+ html.zoro-ui #myPreferencesMenuPage .listItemIcon { margin:0!important; width:26px!important; height:26px!important; }
+ html.zoro-ui #myPreferencesMenuPage .btnLogout { border:0!important; }
+ html.zoro-ui #myPreferencesMenuPage .btnLogout .listItem { padding:0!important; min-height:44px; }
+ html.zoro-ui #myPreferencesMenuPage .listItem-border:hover { background:#ffffff08!important; }
+ html.zoro-ui.zoro-native-home #slides-container { top:calc(var(--zoro-shell-header,64px) + 112px)!important; left:4%!important; width:92%!important; height:470px!important; border:1px solid #ffffff18; border-radius:20px!important; }
+ html.zoro-ui.zoro-native-home .homePage { padding-top:calc(var(--zoro-shell-header,64px) + 112px + 490px)!important; }
+ html.zoro-ui .zoroHomeHeading { position:absolute; top:calc(var(--zoro-shell-header,64px) + 8px); left:0; right:0; }
+ html.zoro-ui .zoroBrowseCategories { position:absolute; top:calc(var(--zoro-shell-header,64px) + 58px); left:0; right:0; padding-block:0!important; }
+ html.zoro-ui #slides-container .gradient-overlay { background:linear-gradient(0deg,#101512 2%,#101512c9 32%,transparent 90%)!important; }
+ html.zoro-ui #slides-container .logo-container { position:absolute!important; left:7%!important; bottom:27%!important; width:78%!important; height:24%!important; }
+ html.zoro-ui #slides-container .info-container { top:auto!important; bottom:20%!important; left:7%!important; font-size:12px!important; }
+ html.zoro-ui #slides-container .plot-container { display:none!important; }
+ html.zoro-ui #slides-container .button-container { left:7%!important; bottom:7%!important; gap:8px!important; }
+ html.zoro-ui #slides-container .button-container .play-button { min-width:120px; }
+ html.zoro-ui #slides-container .dots-container { display:none!important; }
+ html.zoro-ui #slides-container .pause-button,html.zoro-ui #slides-container .mute-button { bottom:auto!important; top:16px!important; }
+ html.zoro-ui #slides-container .backdrop { object-position:65% center; }
+}
+html.zoro-ui.layout-tv .headerTop { min-height:clamp(88px,6vw,180px); }
+html.zoro-ui.layout-tv #slides-container .button-container button { min-height:60px!important; height:60px!important; font-size:22px!important; }
+html.zoro-ui.layout-tv #slides-container .button-container .detail-button,html.zoro-ui.layout-tv #slides-container .button-container .favorite-button { min-width:60px!important; width:60px!important; }
+html.zoro-ui.layout-tv #slides-container .plot-container,html.zoro-ui.layout-tv #slides-container .info-container { font-size:clamp(20px,1.3vw,32px)!important; }
+html.zoro-ui.layout-tv #slides-container .pause-button,html.zoro-ui.layout-tv #slides-container .mute-button { width:60px!important; height:60px!important; }
+html.zoro-ui.layout-tv #slides-container .pause-button { right:calc(4% + 74px)!important; }
+
+/* The pinned base theme adds inset glass shadows to native list rows. The owner
+   theme has one quiet border on the link, so its child needs no second frame. */
+html.zoro-ui #myPreferencesMenuPage .listItem { box-shadow:none!important; border-radius:0!important; background:transparent!important; min-height:56px; }
+html.zoro-ui #myPreferencesMenuPage .listItemIcon { margin-block:0!important; min-height:24px!important; }
+html.zoro-ui #myPreferencesMenuPage .listItemBody { padding-block:0!important; }
+@media(max-width:599px){html.zoro-ui #myPreferencesMenuPage .listItem { min-height:52px; padding:10px 2px; }}
+
+html.zoro-ui #slides-container .logo-container,
+html.zoro-ui #slides-container .info-container,
+html.zoro-ui #slides-container .plot-container { transform:none!important; }
+@media(max-width:599px){
+ html.zoro-ui .skinHeader .pageTitleWithDefaultLogo { width:170px!important; min-width:170px!important; flex:0 0 170px!important; background-image:url("wordmark.png")!important; background-size:contain!important; background-position:left center!important; }
+ html.zoro-ui #slides-container .info-container { width:86%!important; }
+ html.zoro-ui #slides-container .misc-info { justify-content:flex-start!important; gap:8px!important; margin:0!important; padding:0!important; }
+ html.zoro-ui #slides-container .critic-rating,html.zoro-ui #slides-container .runTime,html.zoro-ui #slides-container .separator-icon { display:none!important; }
+}
+
+/* Still artwork banners have no audio control or video layer. The configuration
+   adapter prevents loading trailers; this also prevents stale controls flashing. */
+html.zoro-ui #slides-container .mute-button { display:none!important; }
+html.zoro-ui #slides-container .pause-button { right:4%!important; }
+
+/* Featured live events use the same verified artwork/cards as Home. */
+html.zoro-ui #suggestionsTab.zoro-live-curated>:not(#zoroLiveNowHost) { display:none!important; }
+html.zoro-ui #zoroLiveNowHost { padding-bottom:calc(var(--zoro-shell-footer,0px) + 24px); }
+html.zoro-ui #zoroLiveNowHost #zoroLiveEvents { margin-top:0; }
+html.zoro-ui #zoroLiveNowHost .zle-heading { display:none; }
+html.zoro-ui #zoroLiveNowHost .zle-track { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:24px; overflow:visible; }
+html.zoro-ui #zoroLiveNowHost .zle-card { width:100%; }
+html.zoro-ui .zoroLiveEmpty { padding:16px 4%; color:#bec8c1; }
+@media(max-width:599px){html.zoro-ui #zoroLiveNowHost .zle-track { grid-template-columns:1fr; gap:20px; }}
+
+/* Shared dialog language. Size by the actual TV layout, not desktop width. */
+html.zoro-ui #yamsSupportModal,html.zoro-ui .zoroNotificationBackdrop { padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); background:#050907bf; backdrop-filter:none; -webkit-backdrop-filter:none; }
+html.zoro-ui #yamsSupportModal .yamsSupportDialog,html.zoro-ui .zoroNotificationPanel { width:min(600px,100%); max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px); display:flex; flex-direction:column; overflow:hidden; padding:0; border:1px solid #ffffff20; border-radius:24px; background:#171d19; box-shadow:0 24px 80px #0006; color:#f5f7f5; }
+html.zoro-ui .zoroNotificationPanel { width:min(560px,100%); }
+html.zoro-ui #yamsSupportModal .yamsSupportHeader,html.zoro-ui .zoroNotificationTop { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:20px; padding:22px 26px 18px; margin:0; }
+html.zoro-ui #yamsSupportModal .yamsSupportTitle,html.zoro-ui .zoroNotificationTop h2 { margin:0; font-size:28px; font-weight:650; letter-spacing:-.035em; line-height:1.2; }
+html.zoro-ui #yamsSupportModal .yamsSupportIntro { display:none; }
+html.zoro-ui #yamsSupportModal .yamsSupportClose,html.zoro-ui .zoroDialogClose { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; min-height:44px; padding:0; border:0; border-radius:50%; background:#ffffff09; color:#c4cec7; cursor:pointer; }
+html.zoro-ui #yamsSupportModal .yamsSupportIcon,html.zoro-ui .zoroDialogClose .zoroShellIcon { width:22px; height:22px; font-size:22px; }
+html.zoro-ui #yamsSupportModal .yamsSupportForm { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:18px 16px; padding:4px 26px 26px; overflow-y:auto; scrollbar-gutter:auto; }
+html.zoro-ui #yamsSupportModal .yamsSupportField { min-width:0; margin:0; }
+html.zoro-ui #yamsSupportModal .yamsSupportField[for=yamsDesc],html.zoro-ui #yamsSupportModal .yamsSupportActions,html.zoro-ui #yamsSupportModal .yamsSupportStatus { grid-column:1/-1; }
+html.zoro-ui #yamsSupportModal .yamsSupportLabel { font-size:14px; line-height:1.4; font-weight:500; color:#c1cbc4; margin-bottom:8px; }
+html.zoro-ui #yamsSupportModal .yamsSupportControl { min-height:48px; padding:12px 14px; border:1px solid #ffffff25; border-radius:12px; font-size:16px; line-height:1.45; color:#f5f7f5; background:#ffffff05; box-shadow:none; }
+html.zoro-ui #yamsSupportModal select option { background:#202822; color:#f5f7f5; }
+html.zoro-ui #yamsSupportModal .yamsSupportControl::placeholder { color:#98a69d; }
+html.zoro-ui #yamsSupportModal textarea.yamsSupportControl { min-height:112px; height:112px; }
+html.zoro-ui #yamsSupportModal .yamsSupportActions { display:flex; justify-content:flex-end; align-items:center; gap:10px; margin:0; padding:0; position:static; background:none; }
+html.zoro-ui #yamsSupportModal .yamsSupportButton,html.zoro-ui .zoroNotificationRead { display:inline-flex; align-items:center; justify-content:center; gap:7px; width:auto; min-height:44px; padding:10px 20px; border:1px solid transparent; border-radius:999px; font:inherit; font-size:15px; font-weight:600; line-height:1.3; color:#c4cec7; background:transparent; cursor:pointer; box-sizing:border-box; }
+html.zoro-ui #yamsSupportModal .yamsSupportButtonPrimary { color:#0b2414; background:#72e79b; }
+html.zoro-ui #yamsSupportModal .yamsSupportButtonPrimary:hover:not(:disabled) { background:#9cefb9; }
+html.zoro-ui #yamsSupportModal .yamsSupportButton:not(.yamsSupportButtonPrimary):hover,html.zoro-ui #yamsSupportModal .yamsSupportClose:hover,html.zoro-ui .zoroDialogClose:hover,html.zoro-ui .zoroNotificationRead:hover { background:#ffffff0d; color:#fff; }
+html.zoro-ui #yamsSupportModal .yamsSupportStatus { min-height:0; margin:0; font-size:14px; line-height:1.5; }
+html.zoro-ui #yamsSupportModal .yamsSupportStatus:empty { display:none; }
+html.zoro-ui #yamsSupportModal :is(button,input,select,textarea):focus-visible,html.zoro-ui .zoroNotificationPanel button:focus-visible { outline:2px solid #d9f8e3; outline-offset:3px; border-color:#72e79b; box-shadow:none; }
+html.zoro-ui .zoroNotificationContent { min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:0 26px 24px; }
+html.zoro-ui .zoroNotificationContent { display:flex; flex-direction:column; gap:10px; }
+html.zoro-ui .zoroNotificationItem { padding:16px 18px; border:1px solid #ffffff0f; border-radius:18px; background:#0f1512; }
+html.zoro-ui .zoroNotificationItem.zoroServerMessage { border-color:#42d77933; background:linear-gradient(160deg,#16261c,#0f1512 70%); }
+html.zoro-ui .zoroNotificationItemTop { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+html.zoro-ui .zoroNotificationItem h3 { font-size:16px; font-weight:600; line-height:1.4; margin:0; overflow-wrap:anywhere; }
+html.zoro-ui .zoroNotificationItem p { margin:6px 0 0; font-size:15px; line-height:1.6; color:#bbc8bf; white-space:pre-wrap; overflow-wrap:anywhere; }
+html.zoro-ui .zoroNotificationActions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }
+html.zoro-ui .zoroNotificationRead { flex-shrink:0; min-height:40px; font-size:14px; padding:0 14px; color:#b8d9c2; background:#ffffff0a; }
+html.zoro-ui .zoroNotificationActions:has(> .zoroNotificationRead:only-child) { margin-top:4px; }
+html.zoro-ui .zoroNotificationActions .zoroNotificationRead:only-child { margin-left:-10px; background:transparent; padding:0 10px; }
+html.zoro-ui .zoroNotificationRead .zoroShellIcon { font-size:18px; }
+html.zoro-ui .zoroNotificationAction { display:inline-flex; align-items:center; min-height:40px; margin:0; padding:0 18px; border-radius:999px; background:#f4f7f5; color:#101512; font-size:14px; font-weight:700; text-decoration:none; }
+html.zoro-ui .zoroNotificationAction:hover { background:#fff; }
+html.zoro-ui .zoroNotificationAction:focus-visible { outline:3px solid #fff; outline-offset:3px; }
+html.zoro-ui .zoroNotificationNote { margin:6px 0 0; font-size:14px; color:#93a198; }
+html.zoro-ui .zoroNotificationRead:disabled { opacity:.55; cursor:wait; }
+html.zoro-ui .zoroNotificationEmpty { display:flex; flex-direction:column; align-items:center; gap:16px; padding:30px 0 40px; text-align:center; color:#bbc8bf; }
+html.zoro-ui .zoroNotificationEmpty .zoroShellIcon { display:grid; place-items:center; width:60px; height:60px; border-radius:50%; background:#ffffff06; color:#9bc6a9; font-size:28px; }
+html.zoro-ui .zoroNotificationEmpty p { margin:0; font-size:16px; line-height:1.5; }
+html.zoro-ui .zoroNotificationContent > .zoroNotificationRead { display:flex; margin:0 auto; }
+@media(max-width:599px){
+ html.zoro-ui #yamsSupportModal,html.zoro-ui .zoroNotificationBackdrop { align-items:flex-end; padding:10px 10px max(10px,env(safe-area-inset-bottom)); }
+ html.zoro-ui #yamsSupportModal .yamsSupportDialog,html.zoro-ui .zoroNotificationPanel { max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); padding:0; border:1px solid #ffffff20; border-radius:24px; }
+ html.zoro-ui #yamsSupportModal .yamsSupportHeader,html.zoro-ui .zoroNotificationTop { padding:18px 20px 16px; }
+ html.zoro-ui #yamsSupportModal .yamsSupportTitle,html.zoro-ui .zoroNotificationTop h2 { font-size:25px; }
+ html.zoro-ui #yamsSupportModal .yamsSupportButton,html.zoro-ui #yamsSupportModal .yamsSupportClose,html.zoro-ui .zoroDialogClose,html.zoro-ui .zoroNotificationRead { min-height:48px; }
+ html.zoro-ui #yamsSupportModal .yamsSupportClose,html.zoro-ui .zoroDialogClose { width:48px; height:48px; }
+ html.zoro-ui #yamsSupportModal .yamsSupportForm { grid-template-columns:minmax(0,1fr); padding:2px 20px 20px; gap:16px; }
+ html.zoro-ui .zoroNotificationContent { padding:0 12px 14px; gap:8px; }
+ html.zoro-ui .zoroNotificationItem { padding:14px 16px; border-radius:16px; }
+ html.zoro-ui .zoroNotificationItem p { font-size:15px; line-height:1.5; }
+ html.zoro-ui .zoroNotificationAction,html.zoro-ui .zoroNotificationActions .zoroNotificationRead { min-height:44px; }
+ html.zoro-ui .zoroNotificationNote { padding:0 4px; }
+ html.zoro-ui .zoroNotificationItemTop { gap:8px; }
+}
+html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportDialog,html.zoro-ui.layout-tv .zoroNotificationPanel { width:min(840px,76vw); max-height:calc(100vh - 64px); border-radius:24px; }
+html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportHeader,html.zoro-ui.layout-tv .zoroNotificationTop { padding:28px 32px 20px; }
+html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportTitle,html.zoro-ui.layout-tv .zoroNotificationTop h2 { font-size:clamp(32px,2.2vw,52px); }
+html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportClose,html.zoro-ui.layout-tv .zoroDialogClose { width:60px; height:60px; }
+html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportForm { padding:4px 32px 28px; gap:20px; }
+html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportLabel { font-size:18px; }
+html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportControl,html.zoro-ui.layout-tv #yamsSupportModal .yamsSupportButton,html.zoro-ui.layout-tv .zoroNotificationRead { min-height:60px; font-size:20px; }
+html.zoro-ui.layout-tv #yamsSupportModal textarea.yamsSupportControl { min-height:128px; }
+html.zoro-ui.layout-tv .zoroNotificationContent { padding:0 32px 28px; }
+html.zoro-ui.layout-tv .zoroNotificationItem h3,html.zoro-ui.layout-tv .zoroNotificationEmpty p { font-size:24px; }
+html.zoro-ui.layout-tv .zoroNotificationItem p { font-size:22px; }
+html.zoro-ui.layout-tv .zoroNotificationItem { padding:22px 26px; border-radius:22px; }
+html.zoro-ui.layout-tv .zoroNotificationAction { min-height:60px; padding:0 28px; font-size:20px; }
+html.zoro-ui.layout-tv #yamsSupportModal :is(button,input,select,textarea):focus,html.zoro-ui.layout-tv .zoroNotificationPanel button:focus { outline:3px solid #fff; outline-offset:4px; }
+
+/* Notifications match the Apple TV app: a panel on the right that hangs from the
+   bell (zorofin-shell.js sets the --zoro-pop-* position), Apple TV colors, rounded
+   rows on the darker background, a jade kind label and an Apple-style empty state. */
+html.zoro-ui .zoroNotificationBackdrop { display:block; padding:0; background:#0000002e; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationPanel { position:absolute; top:var(--zoro-pop-top,24px); left:var(--zoro-pop-left,auto); right:auto; width:var(--zoro-pop-width,min(560px,calc(100vw - 48px))); height:auto; max-height:var(--zoro-pop-height,650px); border:1px solid #39423c; border-radius:24px; background:#1b211e; box-shadow:0 10px 40px #00000059,0 2px 8px #0000004d; animation:zoroNotificationIn .18s cubic-bezier(.2,.8,.2,1); }
+html.zoro-ui .zoroNotificationPointer { position:absolute; top:calc(var(--zoro-pop-top,24px) - 11px); left:calc(var(--zoro-pop-pointer,0px) - 12px); width:24px; height:12px; background:#1b211e; clip-path:polygon(50% 0,100% 100%,0 100%); pointer-events:none; animation:zoroNotificationIn .18s ease-out; }
+@keyframes zoroNotificationIn { from { opacity:0; transform:translateY(-6px) scale(.98); } }
+@media(prefers-reduced-motion:reduce){ html.zoro-ui .zoroNotificationBackdrop .zoroNotificationPanel,html.zoro-ui .zoroNotificationPointer { animation:none; } }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationTop { gap:12px; padding:12px 12px 12px 18px; border-bottom:1px solid #39423c; background:#1b211e; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationTop h2 { font-size:21px; font-weight:700; letter-spacing:-.02em; }
+html.zoro-ui .zoroNotificationBackdrop .zoroDialogClose { width:44px; height:44px; min-height:44px; background:#f5f7f50f; color:#f5f7f5; }
+html.zoro-ui .zoroNotificationBackdrop .zoroDialogClose .zoroShellIcon { font-size:20px; width:20px; height:20px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationContent { gap:8px; padding:12px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationItem { padding:12px 14px; border:0; border-radius:14px; background:#11151373; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationItem.zoroServerMessage { background:#11151373; box-shadow:inset 0 0 0 1px #72e79b2e; }
+html.zoro-ui .zoroNotificationKind { display:flex; align-items:center; gap:6px; margin:0 0 6px; color:#72e79b; font-size:13px; font-weight:600; line-height:1.3; }
+html.zoro-ui .zoroNotificationKind .zoroShellIcon { width:18px; height:18px; font-size:18px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationItem h3 { font-size:16px; font-weight:600; line-height:1.35; color:#f5f7f5; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationItem p { margin:4px 0 0; font-size:14px; line-height:1.45; color:#bbc5bd; }
+html.zoro-ui .zoroSupportReply:not(.expanded) .zoroNotificationBody { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+html.zoro-ui .zoroNotificationMore { min-height:36px; margin:0 0 0 -8px; padding:0 8px; border:0; border-radius:8px; background:transparent; color:#72e79b; font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+html.zoro-ui .zoroNotificationMore:hover { background:#f5f7f50d; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationActions { margin-top:10px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationAction { min-height:36px; padding:0 16px; font-size:14px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationRead { min-height:36px; padding:0 12px; font-size:13px; color:#bbc5bd; background:#f5f7f50f; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationActions .zoroNotificationRead:only-child,html.zoro-ui .zoroNotificationBackdrop .zoroNotificationMore + .zoroNotificationRead { padding:0 8px; background:transparent; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationActions .zoroNotificationRead:only-child { margin-left:-8px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationMore + .zoroNotificationRead { margin-left:auto; }
+html.zoro-ui .zoroNotificationCaughtUp { padding:20px 8px; }
+html.zoro-ui .zoroNotificationCaughtUp p { margin:6px 0 0; font-size:14px; line-height:1.4; color:#bbc5bd; }
+html.zoro-ui .zoroNotificationCaughtUp .zoroNotificationCaughtUpTitle { margin:0; font-size:17px; font-weight:600; color:#f5f7f5; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationEmpty { align-items:flex-start; gap:10px; padding:20px 8px; text-align:left; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationEmpty .zoroShellIcon { display:none; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationEmpty p { font-size:15px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationNote { margin:2px 0 0; padding:0 8px; font-size:13px; color:#bbc5bd; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationContent > .zoroNotificationRead { margin:0 0 4px 8px; }
+@media(max-width:599px){
+ html.zoro-ui .zoroNotificationBackdrop .zoroNotificationPanel { border-radius:20px; }
+ html.zoro-ui .zoroNotificationBackdrop .zoroNotificationContent { padding:10px; }
+ html.zoro-ui .zoroNotificationBackdrop .zoroNotificationItem p { font-size:15px; }
+ html.zoro-ui .zoroNotificationBackdrop :is(.zoroNotificationAction,.zoroNotificationRead,.zoroNotificationMore) { min-height:44px; }
+}
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationPanel { border-radius:24px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationTop { padding:16px 16px 16px 26px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationTop h2 { font-size:30px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroDialogClose { width:56px; height:56px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationContent { gap:10px; padding:18px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationItem { padding:16px 20px; }
+html.zoro-ui.layout-tv .zoroNotificationKind { font-size:18px; }
+html.zoro-ui.layout-tv .zoroNotificationKind .zoroShellIcon { width:24px; height:24px; font-size:24px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationItem h3 { font-size:24px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationItem p,html.zoro-ui.layout-tv .zoroNotificationCaughtUp p { font-size:20px; }
+html.zoro-ui.layout-tv .zoroNotificationCaughtUp .zoroNotificationCaughtUpTitle { font-size:24px; }
+html.zoro-ui.layout-tv .zoroNotificationBackdrop :is(.zoroNotificationAction,.zoroNotificationRead,.zoroNotificationMore) { min-height:56px; font-size:19px; }
+
+/* Native suggestions must reserve space above the request footer. The pinned
+   theme positions this list absolutely with a 50% width and nested scroller. */
+html.zoro-ui #searchPage .searchSuggestions { margin:28px 0 0; padding-inline:4%; text-align:left!important; }
+html.zoro-ui #searchPage .searchSuggestions .sectionTitle { padding:0!important; margin:0 0 12px; font-size:20px; }
+html.zoro-ui #searchPage .searchSuggestionsList { position:static!important; inset:auto!important; transform:none!important; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:4px 24px; width:100%!important; height:auto!important; max-height:none!important; padding:0!important; margin:0; overflow:visible!important; background:transparent!important; border-radius:0; box-shadow:none!important; box-sizing:border-box; }
+html.zoro-ui #searchPage .searchSuggestionsList>div { min-width:0; border-radius:12px; }
+html.zoro-ui #searchPage .searchSuggestionsList a { display:flex!important; align-items:center; min-height:48px; padding:12px 14px!important; box-sizing:border-box; color:#d4dfd7; line-height:1.4; text-align:left; overflow-wrap:anywhere; }
+html.zoro-ui #searchPage .searchSuggestionsList a:before { flex-shrink:0; color:#a5b4aa; }
+html.zoro-ui #searchPage .searchSuggestionsList a:focus-visible { outline:2px solid #d9f8e3; outline-offset:2px; border-radius:12px; }
+html.zoro-ui #searchPage #jellyseerr-search-icon { display:none!important; }
+html.zoro-ui.layout-tv #searchPage .searchSuggestionsList a { min-height:60px; font-size:22px; }
+
+
+/* Mobile Home reserves the native banner's measured height in document flow. */
+html.zoro-ui.zoro-mobile-flow .skinHeader { min-height:64px!important; height:64px!important; }
+html.zoro-ui.zoro-mobile-flow .skinHeader .headerTop { min-height:64px!important; height:64px!important; flex:0 0 auto; }
+html.zoro-ui.zoro-mobile-flow.zoro-native-home .homePage { padding-top:calc(var(--zoro-shell-header,64px) + 8px)!important; }
+html.zoro-ui.zoro-mobile-flow .zoroHomeHeading { position:static; margin-bottom:6px; }
+html.zoro-ui.zoro-mobile-flow .homePage .zoroBrowseCategories { position:static; margin-bottom:12px; }
+html.zoro-ui.zoro-mobile-flow.zoro-native-home #slides-container { position:absolute!important; top:var(--zoro-mobile-banner-top,178px)!important; left:4%!important; box-sizing:border-box; height:clamp(390px,120vw,470px)!important; margin:0!important; }
+html.zoro-ui.zoro-mobile-flow .zoroContextToolbar { gap:12px; margin-bottom:16px; }
+html.zoro-ui.zoro-mobile-flow .zoroContextToolbar h1 { min-width:0; font-size:26px; }
+html.zoro-ui.zoro-mobile-flow .zoroContextSelect { flex-shrink:0; max-width:56%; font-size:16px; }
+html.zoro-ui.zoro-mobile-flow.zoro-shell-context-tabs .zoroContextPage { padding-top:calc(var(--zoro-shell-header,64px) + 16px)!important; }
+/* Guide is a bounded flex view: dates, timeline and rows all share the space
+   between the Live TV selector and the floating dock. Native scroll stays native. */
+html.zoro-ui.zoro-shell-active.zoro-native-guide .liveTvPage:not(.hide) { display:flex; flex-direction:column; height:100vh!important; height:100dvh!important; padding-bottom:var(--zoro-shell-footer,0px)!important; overflow:hidden; box-sizing:border-box; }
+html.zoro-ui.zoro-shell-active.zoro-native-guide .liveTvPage>.zoroContextToolbar { flex-shrink:0; }
+html.zoro-ui.zoro-shell-active.zoro-native-guide .liveTvContainer { display:flex; flex:1; min-width:0; width:100%; min-height:0; padding-bottom:0!important; }
+html.zoro-ui.zoro-shell-active #guideTab { position:relative!important; inset:auto!important; height:auto!important; min-width:0; min-height:0; flex:1; width:100%!important; }
+html.zoro-ui.zoro-mobile-flow #guideTab .tvGuideHeader { margin-bottom:4px; }
+html.zoro-ui.zoro-mobile-flow #guideTab .guide-headerTimeslots { margin-top:0; padding-top:0; border-radius:0; }
+html.zoro-ui.zoro-mobile-flow #guideTab .guideHeaderDateSelection { padding-block:0; }
+html.zoro-ui.zoro-mobile-flow #guideTab .guide-date-tab-button { min-width:44px; min-height:48px; }
+html.zoro-ui.zoro-mobile-flow #guideTab .guideVerticalScroller { min-height:0; padding:0 0 12px!important; }
+html.zoro-ui.zoro-mobile-flow #guideTab :is(.channelsContainer,.guide-channelTimeslotHeader) { width:84px; }
+html.zoro-ui.zoro-mobile-flow #guideTab :is(.guide-channelHeaderCell,.channelPrograms) { height:64px; min-height:64px; }
+html.zoro-ui.zoro-mobile-flow #guideTab .guideChannelImage { background-position:center; }
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage.zoroContextPage { padding-top:calc(var(--zoro-shell-header,64px) + 16px)!important; }
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage #guideTab :is(.channelsContainer,.guide-channelTimeslotHeader) { width:84px!important; }
+/* Channels are a compact grid, not oversized horizontal-shelf cards wrapping
+   into a single long column. Keep the original channel and direct-play actions. */
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage #channelsTab #items { display:grid!important; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 12px; padding-inline:4%!important; overflow:visible; }
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage #channelsTab #items>.card { width:100%!important; min-width:0; padding:0; }
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage #channelsTab .cardFooter { padding:10px 8px; }
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage #channelsTab .cardText { font-size:13px; line-height:1.4; }
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage #channelsTab .zoroLiveTvPlayButton { width:44px!important; min-width:44px!important; height:44px!important; min-height:44px!important; padding:0!important; border-radius:50%; left:auto!important; right:6px!important; bottom:6px!important; }
+html.zoro-ui.zoro-mobile-flow #liveTvSuggestedPage #channelsTab .zoroLiveTvPlayLabel { display:none; }
+/* The desktop A–Z rail overlaps mobile view controls and has tiny tap targets.
+   Keep its native filtering, in one horizontally scrollable row before the grid. */
+html.zoro-ui.zoro-mobile-flow .alphaPicker-fixed { position:relative!important; inset:auto!important; transform:none!important; width:100%!important; max-height:none!important; height:auto!important; margin:8px 0 16px!important; padding:0 4%!important; box-sizing:border-box; overflow:auto hidden!important; }
+html.zoro-ui.zoro-mobile-flow .alphaPickerRow { display:flex!important; flex-direction:row!important; width:max-content; }
+html.zoro-ui.zoro-mobile-flow .alphaPickerButton { flex:0 0 44px; width:44px!important; min-width:44px; height:44px!important; min-height:44px; font-size:15px!important; border-radius:50%; }
+html.zoro-ui.zoro-mobile-flow .padded-right-withalphapicker { padding-right:4%!important; }
+
+.zoroMobileHeroSlot { display:none; }
+html.zoro-ui.zoro-mobile-flow.zoro-native-home .zoroMobileHeroSlot { display:block; height:clamp(390px,120vw,470px); margin:0 4% 24px; pointer-events:none; }
+
+/* Detail pages participate in the same shell as the library. Measure clearance
+   from that header instead of the legacy detail layout's hard-coded 48px bar. */
+html.zoro-ui.zoro-shell-detail #itemDetailPage { padding-top:calc(var(--zoro-shell-header,64px) + 16px)!important; padding-bottom:calc(var(--zoro-shell-footer,80px) + 24px)!important; }
+html.zoro-ui.zoro-mobile-flow.zoro-shell-active .skinHeader .headerLeft { min-width:0; display:flex; align-items:center; gap:4px; }
+html.zoro-ui.zoro-mobile-flow.zoro-shell-active .skinHeader .headerHomeButton,
+html.zoro-ui.zoro-mobile-flow.zoro-shell-active .skinHeader .pageTitle { display:none!important; }
+html.zoro-ui.zoro-mobile-flow.zoro-shell-active .skinHeader .headerBackButton { flex:0 0 48px; min-width:48px; width:48px; height:48px; margin:0; padding:0; }
+.zoroMobileBrand { display:flex; align-items:center; justify-content:flex-start; flex:0 1 auto; min-width:0; min-height:48px; border-radius:12px; }
+.zoroMobileBrand img { display:block; width:min(144px,42vw); height:auto; }
+.zoroMobileBrand:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+
+/* Keep related titles identifiable without the legacy subtitle/count stack.
+   The label uses normal flow and its own text color, independent of title effects. */
+html.zoro-ui #itemDetailPage.zoro-detail-v3 .zoroRelatedHeaderV3 { display:block; position:relative; margin:0; padding:0; }
+html.zoro-ui #itemDetailPage.zoro-detail-v3 .zoroRelatedHeadingV3 { display:block; position:static; margin:0; padding:0; line-height:1.3; color:#f5f8f6; -webkit-text-fill-color:currentColor; opacity:1; visibility:visible; }
+html.zoro-ui #itemDetailPage.zoro-detail-v3 .zoroRelatedContextV3,
+html.zoro-ui #itemDetailPage.zoro-detail-v3 .zoroRelatedCountV3 { display:none; }
+
+/* A single mobile identity bar across browsing and personal settings. */
+html.zoro-ui.zoro-mobile-flow.zoro-shell-root .skinHeader .headerBackButton { display:none!important; }
+html.zoro-ui.zoro-mobile-flow.zoro-shell-active .skinHeader .headerSearchButton { width:48px!important; height:48px!important; min-width:48px!important; min-height:48px!important; margin:0; padding:0; }
+html.zoro-ui.zoro-shell-settings .zoroShellPage { padding-top:calc(var(--zoro-shell-header,72px) + 20px)!important; padding-bottom:calc(var(--zoro-shell-footer,0px) + 24px)!important; }
+
+/* TV must keep native Search/utilities aligned with the fixed browsing links. */
+html.zoro-ui.layout-tv.zoro-shell-active .skinHeader { position:fixed!important; inset:0 0 auto!important; }
+
+@media(min-width:600px){
+ html.zoro-ui.zoro-shell-active #guideTab .guideDateTabs { height:64px!important; min-height:64px; }
+ html.zoro-ui.zoro-shell-active #guideTab .guide-headerTimeslots { margin-top:0; padding-top:0; }
+ html.zoro-ui.zoro-shell-active #guideTab .guideVerticalScroller { min-height:0; padding-bottom:12px!important; }
+}
+
+/* Alert preferences use the same restrained surfaces as the inbox and support.
+   Only presentation changes: the canonical module owns state, credentials and actions. */
+html.zoro-ui #zorofinRequestAlertModal { --zra-surface:#171d19; --zra-raised:#202822; --zra-control:#ffffff05; --zra-border:#ffffff25; --zra-text:#f5f7f5; --zra-muted:#bbc8bf; --zra-accent-strong:#72e79b; --zra-accent:#9cefb9; --zra-accent-ink:#0b2414; padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); background:#050907bf; }
+html.zoro-ui #zorofinRequestAlertModal .zraDialog { width:min(600px,100%); max-height:calc(100vh - 40px); max-height:calc(100dvh - 40px); border:1px solid #ffffff20; border-radius:24px; box-shadow:0 24px 80px #0006; }
+html.zoro-ui #zorofinRequestAlertModal .zraHeader { flex-shrink:0; grid-template-columns:minmax(0,1fr) 44px; gap:12px; padding:22px 26px 18px; background:none; border:0; }
+html.zoro-ui #zorofinRequestAlertModal :is(.zraMark,.zraEyebrow,.zraAccount,.zraCard[aria-labelledby="zraEmailTitle"] .zraCardCopy) { display:none; }
+html.zoro-ui #zorofinRequestAlertModal .zraTitle { font-size:28px; font-weight:650; letter-spacing:-.035em; line-height:1.2; }
+html.zoro-ui #zorofinRequestAlertModal .zraIntro { margin:8px 0 0; font-size:14px; line-height:1.5; }
+html.zoro-ui #zorofinRequestAlertModal .zraClose { display:grid; place-items:center; width:44px; height:44px; min-height:44px; border:0; background:#ffffff09; color:#c4cec7; }
+html.zoro-ui #zorofinRequestAlertModal .zraIcon { width:22px; height:22px; }
+html.zoro-ui #zorofinRequestAlertModal .zraBody { padding:0 26px 26px; scrollbar-gutter:auto; }
+html.zoro-ui #zorofinRequestAlertModal .zraGrid { grid-template-columns:minmax(0,1fr); gap:16px; }
+html.zoro-ui #zorofinRequestAlertModal :is(.zraCard,.zraCredentials,.zraSetup) { min-width:0; padding:18px; margin:0; border:1px solid #ffffff18; border-radius:16px; background:#ffffff03; }
+html.zoro-ui #zorofinRequestAlertModal .zraCardHeader { margin-bottom:14px; }
+html.zoro-ui #zorofinRequestAlertModal :is(.zraCardTitle,.zraCredentialsTitle,.zraSetup h3) { margin:0; font-size:18px; font-weight:600; line-height:1.4; }
+html.zoro-ui #zorofinRequestAlertModal .zraBadge { padding:4px 9px; border:0; border-radius:999px; font-size:12px; font-weight:600; text-transform:none; letter-spacing:0; background:#ffffff08; }
+html.zoro-ui #zorofinRequestAlertModal .zraBadge[data-enabled="true"] { background:#72e79b16; color:#9cefb9; }
+html.zoro-ui #zorofinRequestAlertModal :is(.zraCardCopy,.zraHint,.zraCredentialsIntro,.zraSetup li) { font-size:14px; line-height:1.5; }
+html.zoro-ui #zorofinRequestAlertModal .zraCardCopy { margin:0 0 14px; }
+html.zoro-ui #zorofinRequestAlertModal .zraLabel { font-size:14px; font-weight:500; color:#c1cbc4; margin-bottom:8px; }
+html.zoro-ui #zorofinRequestAlertModal .zraInput { width:100%; min-height:48px; padding:12px 14px; border:1px solid #ffffff25; border-radius:12px; font-size:16px; line-height:1.45; background:#ffffff05; box-shadow:none; }
+html.zoro-ui #zorofinRequestAlertModal .zraActions { gap:8px; margin-top:16px; }
+html.zoro-ui #zorofinRequestAlertModal .zraButton { flex:0 1 auto; min-height:44px; padding:10px 12px; border:1px solid #ffffff20; border-radius:999px; font-size:14px; line-height:1.3; font-weight:600; background:transparent; }
+html.zoro-ui #zorofinRequestAlertModal .zraButtonPrimary { color:#0b2414; background:#72e79b; border-color:transparent; }
+html.zoro-ui #zorofinRequestAlertModal .zraButtonDanger { color:#ffb4ab; border-color:transparent; }
+html.zoro-ui #zorofinRequestAlertModal .zraButton:hover:not(:disabled),html.zoro-ui #zorofinRequestAlertModal .zraClose:hover { background:#ffffff0d; }
+html.zoro-ui #zorofinRequestAlertModal .zraButtonPrimary:hover:not(:disabled) { background:#9cefb9; }
+html.zoro-ui #zorofinRequestAlertModal .zraCredentialList { grid-template-columns:minmax(0,1fr); }
+html.zoro-ui #zorofinRequestAlertModal .zraCredential { background:transparent; border:0; padding:6px 0; }
+html.zoro-ui #zorofinRequestAlertModal .zraCopy { min-width:58px; }
+html.zoro-ui #zorofinRequestAlertModal .zraStatus { min-height:0; font-size:14px; }
+html.zoro-ui #zorofinRequestAlertModal .zraStatus:empty { display:none; }
+html.zoro-ui #zorofinRequestAlertModal :is(button,input):focus-visible { outline:2px solid #d9f8e3; outline-offset:3px; border-color:#72e79b; box-shadow:none; }
+@media(max-width:599px){
+ html.zoro-ui #zorofinRequestAlertModal { align-items:flex-end; padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom)); }
+ html.zoro-ui #zorofinRequestAlertModal .zraDialog { max-height:calc(100vh - 24px); max-height:calc(100dvh - 24px); border-radius:24px; }
+ html.zoro-ui #zorofinRequestAlertModal .zraHeader { grid-template-columns:minmax(0,1fr) 48px; padding:18px 20px 16px; }
+ html.zoro-ui #zorofinRequestAlertModal .zraTitle { font-size:25px; }
+ html.zoro-ui #zorofinRequestAlertModal .zraBody { padding:0 20px 20px; }
+ html.zoro-ui #zorofinRequestAlertModal .zraCard { padding:16px; }
+ html.zoro-ui #zorofinRequestAlertModal .zraButton { min-height:48px; }
+ html.zoro-ui #zorofinRequestAlertModal .zraClose { width:48px; height:48px; min-height:48px; }
+}
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraDialog { width:min(960px,86vw); max-height:calc(100vh - 64px); }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraHeader { grid-template-columns:minmax(0,1fr) 60px; padding:28px 32px 20px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraTitle { font-size:clamp(32px,2.2vw,52px); }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraBody { padding:0 32px 28px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraCard { padding:22px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal :is(.zraIntro,.zraLabel,.zraCardCopy,.zraHint,.zraCredentialsIntro,.zraSetup li,.zraStatus) { font-size:18px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal :is(.zraCardTitle,.zraCredentialsTitle,.zraSetup h3) { font-size:24px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal :is(.zraInput,.zraButton) { min-height:60px; font-size:20px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraClose { width:60px; height:60px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraBadge { font-size:16px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraCredentialValue { font-size:18px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal .zraCredentialLabel { font-size:16px; }
+html.zoro-ui.layout-tv #zorofinRequestAlertModal :is(button,input):focus { outline:3px solid #fff; outline-offset:4px; box-shadow:none; }
+
+/* Native Home row scrolling. Keep this after Modern's overflow containment.
+   Jellyfin marks browser-managed rails with scrollX; overflow:hidden disables
+   touch/trackpad panning even though assigning scrollLeft still works.
+   Transform-managed desktop/TV rails do not carry scrollX. */
+html.zoro-ui .homeSectionsContainer .emby-scroller.scrollX {
+  overflow-x:auto;
+}
+
+/* Mobile layout compatibility with the current native web shell. */
+/* The native banner plugin also offsets these rows; Home already reserves a slot. */
+html.zoro-ui.zoro-mobile-flow.zoro-native-home #indexPage .homeSectionsContainer {
+  top:0!important;
+}
+/* React replaces its header classes on scroll. Anchor mobile geometry to the
+   native component, not the presentation class added after its first render. */
+@media(max-width:599px) {
+  html.zoro-ui.zoro-mobile-flow.zoro-shell-active:has(header.MuiAppBar-root) { --zoro-shell-header:64px!important; }
+  html.zoro-ui.zoro-mobile-flow.zoro-shell-active header.MuiAppBar-root,
+  html.zoro-ui.zoro-mobile-flow.zoro-shell-active header.MuiAppBar-root .MuiToolbar-root {
+    min-height:64px!important;
+    height:auto;
+    box-sizing:border-box;
+  }
+  html.zoro-ui.zoro-mobile-flow.zoro-shell-active header.MuiAppBar-root {
+    background:#101512f2; color:#f5f7f5; box-shadow:none; z-index:1000;
+  }
+  html.zoro-ui.zoro-mobile-flow.zoro-shell-active header.MuiAppBar-root .MuiToolbar-root { padding-inline:16px; justify-content:flex-end; }
+  html.zoro-ui.zoro-mobile-flow.zoro-shell-active header.MuiAppBar-root .zoroModernBrand { display:flex; align-items:center; min-height:48px; margin-right:auto; }
+  /* Modern supplies the top toolbar spacer outside the legacy page itself. */
+  html.zoro-ui.zoro-mobile-flow.zoro-native-home #reactRoot #indexPage { padding-top:8px!important; }
+}
+@media(max-width:599px) {
+  html.zoro-ui.zoro-mobile-flow.zoro-shell-detail #reactRoot #itemDetailPage { padding-top:16px!important; }
+  html.zoro-ui.zoro-mobile-flow #itemDetailPage:is(.zoro-detail-series,.zoro-detail-season) > .itemBackdrop { height:0!important; min-height:0!important; margin:0!important; }
+  html.zoro-ui.zoro-mobile-flow #itemDetailPage:is(.zoro-detail-series,.zoro-detail-season) .detailPagePrimaryContainer { padding-top:0!important; }
+}
+@media(max-width:599px) {
+  /* The guide owns vertical scrolling; reserve dock space once at its edge. */
+  html.zoro-ui.zoro-mobile-flow #liveTvPage > .tvguide { height:auto!important; bottom:var(--zoro-shell-footer,80px)!important; }
+  html.zoro-ui.zoro-mobile-flow #liveTvPage .guide-headerTimeslots { margin-top:0!important; padding-top:0!important; }
+  html.zoro-ui.zoro-mobile-flow #liveTvPage .guideHeaderDateSelection { padding-block:0; }
+  html.zoro-ui.zoro-mobile-flow #liveTvPage .guide-date-tab-button { min-width:44px; min-height:48px; }
+  html.zoro-ui.zoro-mobile-flow #liveTvPage .guideVerticalScroller { padding-bottom:12px!important; }
+}
+
+/* Native inputs and authentication handlers stay attached. One primary action per state. */
+#loginPage.zoroSignin { background:radial-gradient(ellipse at 18% 0%,#23403170,transparent 60%),#101512!important; color:#f5f7f5; padding:0!important; min-height:100vh; }
+#loginPage.zoroSignin > div { width:min(460px,92%); margin:0 auto; padding:40px 20px; box-sizing:border-box; }
+.zoroSigninBrand { font-size:28px; font-weight:800; letter-spacing:-.05em; color:#72e79b; margin:0 0 32px; }
+.zoroSigninBrand img { display:block; width:172px; max-width:100%; height:auto; }
+.zoroSigninIntro h1 { font-size:36px; line-height:1.15; letter-spacing:-.04em; margin:0 0 28px; }
+#loginPage.zoroSignin .manualLoginForm,#loginPage.zoroSignin .readOnlyContent,#loginPage.zoroSignin .visualLoginForm { width:100%; max-width:100%; margin:0!important; }
+#loginPage.zoroSignin .manualLoginForm > div:first-child,#loginPage.zoroSignin .visualLoginForm > h1 { display:none; }
+#loginPage.zoroSignin .readOnlyContent { display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; align-items:center; }
+#loginPage.zoroSignin .inputContainer { margin:0 0 16px; gap:8px; }
+#loginPage.zoroSignin .inputContainer label { margin:0; color:#c4cdc7; font-size:14px; }
+#loginPage.zoroSignin .emby-input { width:100%; background:#1b231e; color:#f5f7f5; border:1px solid #52665a; border-radius:12px; padding:14px 16px; box-sizing:border-box; min-height:52px; font-size:16px; }
+#loginPage.zoroSignin .emby-input:focus { border-color:#72e79b; outline:2px solid #72e79b; outline-offset:2px; }
+#loginPage.zoroSignin button { border-radius:999px; min-height:48px; font:inherit; margin:0; }
+#loginPage.zoroSignin button:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+#loginPage.zoroSignin .button-submit,#loginPage.zoroSigninQuickPreferred .btnQuick { width:100%; margin-top:18px; background:#72e79b!important; color:#071c0d!important; font-weight:700; border:1px solid #72e79b; }
+#loginPage.zoroSignin .manualLoginForm>label { display:flex; align-items:center; gap:8px; color:#bbc8bf; font-size:14px; min-height:32px; margin:0; }
+#loginPage.zoroSignin .manualLoginForm>label input { accent-color:#72e79b; width:16px; height:16px; }
+#loginPage.zoroSignin .btnManual,#loginPage.zoroSignin .btnForgotPassword,#loginPage.zoroSignin .btnSelectServer,#loginPage.zoroSignin .btnCancel { width:auto!important; justify-self:center; padding:8px 12px; background:transparent!important; color:#bbc8bf!important; box-shadow:none!important; border:0!important; font-size:14px; }
+#loginPage.zoroSignin .btnCancel { display:block; margin:2px auto 8px; }
+#loginPage.zoroSignin .btnManual { grid-column:1/-1; }
+#loginPage.zoroSignin .btnForgotPassword:hover,#loginPage.zoroSignin .btnSelectServer:hover,#loginPage.zoroSignin .btnManual:hover,#loginPage.zoroSignin .btnCancel:hover { color:#fff!important; text-decoration:underline; text-underline-offset:4px; }
+.zoroSigninQuick { grid-column:1/-1; padding:0; margin:0 0 8px; }
+#loginPage.zoroSignin .btnQuick { width:100%; background:#ffffff08; color:#d7e8dc; border:1px solid #496151; font-weight:600; }
+.zoroSigninHint { display:none; }
+.zoroPasswordField { position:relative; }
+#loginPage.zoroSignin .zoroPasswordField .emby-input { padding-right:64px; }
+#loginPage.zoroSignin .zoroPasswordReveal { position:absolute; right:4px; bottom:4px; display:flex; align-items:center; justify-content:center; width:44px!important; min-height:44px; height:44px; padding:0; margin:0; border:0; background:transparent; color:#c5d4ca; cursor:pointer; }
+.zoroPasswordReveal .material-icons { font-size:22px; }
+#loginPage.zoroSignin .zoroSigninQuick[hidden] { display:none!important; }
+#loginPage.zoroSigninQuickPreferred .manualLoginForm,#loginPage.zoroSigninQuickPreferred .visualLoginForm { display:none!important; }
+#loginPage.zoroSigninQuickPreferred .btnManual { display:block!important; grid-row:2; }
+#loginPage.zoroSigninQuickPreferred .zoroSigninQuick { grid-row:1; margin-bottom:12px; }
+#loginPage.zoroSigninQuickPreferred .zoroSigninHint { display:block; color:#bbc8bf; line-height:1.5; margin:0 0 24px; }
+.layout-tv #loginPage.zoroSignin > div { width:90%; max-width:clamp(620px,40vw,1240px); padding-top:clamp(64px,12vh,220px); }
+.layout-tv .zoroSigninBrand { margin-bottom:40px; }
+.layout-tv .zoroSigninBrand img { width:clamp(208px,13vw,420px); }
+.layout-tv .zoroSigninIntro h1 { font-size:clamp(42px,3.1vw,84px); margin-bottom:30px; }
+.layout-tv #loginPage.zoroSignin button,.layout-tv #loginPage.zoroSignin .emby-input { min-height:clamp(60px,3.4vw,110px); font-size:clamp(20px,1.3vw,36px); }
+.layout-tv #loginPage.zoroSignin .inputContainer label,.layout-tv #loginPage.zoroSignin .manualLoginForm>label { font-size:clamp(18px,1.2vw,32px); }
+.layout-tv #loginPage.zoroSignin .zoroPasswordReveal { min-height:52px; height:52px; width:52px!important; bottom:6px; }
+.layout-tv #loginPage.zoroSignin .zoroSigninHint { font-size:clamp(20px,1.5vw,40px); }
+#quickConnectAlert { background:#17221b; color:#f5f7f5; border:1px solid #54745e; border-radius:20px; }
+#quickConnectAlert .dialogContent { font-size:clamp(22px,2vw,44px); line-height:1.6; }
+@media(max-width:599px) { #loginPage.zoroSignin > div { padding:28px 4px; } .zoroSigninBrand { margin-bottom:28px; } .zoroSigninIntro h1 { font-size:32px; margin-bottom:24px; } }
+@media(prefers-reduced-motion:reduce) { #loginPage.zoroSignin * { transition:none!important; } }
+
+.zoroSignupEntry{margin:22px 0;text-align:center;color:#a9b8ae;font-size:14px}.zoroSignupEntry a{display:inline-block;padding:14px 6px;color:#d9e8de;text-decoration:none;font-weight:600}.layout-tv .zoroSignupEntry{font-size:clamp(18px,1.2vw,30px)}
+
+/* Change server: same background, brand, heading and buttons as sign-in, with servers as rounded rows. */
+#selectServerPage { background:radial-gradient(ellipse at 18% 0%,#23403170,transparent 60%),#101512!important; color:#f5f7f5; min-height:100vh; padding:0!important; }
+#selectServerPage > div { width:min(460px,92%); margin:0 auto!important; padding:40px 20px!important; box-sizing:border-box; }
+#selectServerPage .verticalSection { display:flex!important; flex-direction:column!important; margin:0!important; }
+#selectServerPage .verticalSection > div:first-child { justify-content:flex-start!important; padding:0!important; }
+#selectServerPage h1.sectionTitle { margin:0 0 24px!important; padding:0!important; font-size:36px; line-height:1.15; font-weight:700; letter-spacing:-.04em; color:#f5f7f5; text-align:left; }
+#selectServerPage .servers,#selectServerPage .verticalSection > div:nth-child(2) { display:block!important; width:100%!important; padding:0!important; }
+#selectServerPage .servers { display:grid!important; gap:12px; text-align:left!important; }
+#selectServerPage .servers .card { display:block!important; width:100%!important; margin:0!important; padding:0!important; background:none!important; border:0!important; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+#selectServerPage .servers .cardBox { display:flex; align-items:center; gap:16px; margin:0!important; padding:14px 16px; border-radius:16px; background:#1b231e; border:1px solid #2f3d34; transition:border-color .15s ease,background .15s ease; }
+#selectServerPage .servers .cardBox::after { content:"›"; margin-left:auto; color:#8fa196; font-size:28px; line-height:1; }
+#selectServerPage .servers .card:hover .cardBox { border-color:#72e79b; background:#1f2a23; }
+#selectServerPage .servers .card:focus { outline:none; }
+#selectServerPage .servers .card:focus-visible .cardBox { outline:3px solid #fff; outline-offset:3px; border-color:#72e79b; }
+#selectServerPage .servers .cardScalable { position:relative; flex:0 0 52px; width:52px; height:52px; }
+#selectServerPage .servers .cardPadder { display:none!important; }
+#selectServerPage .servers .cardContent { position:absolute; inset:0; border-radius:12px; overflow:hidden; }
+#selectServerPage .servers .cardImageContainer { display:flex; align-items:center; justify-content:center; width:100%; height:100%; background:#25372d!important; }
+/* The mark image is set inline by zorofin-signin.js: a URL here would resolve against the versioned theme.css folder. */
+#selectServerPage .servers .cardImageContainer.zoroServerMark { background-color:#25372d!important; background-position:center!important; background-size:70%!important; background-repeat:no-repeat!important; }
+#selectServerPage .servers .zoroServerMark .cardImageIcon { display:none; }
+#selectServerPage .servers .cardImageIcon { font-size:28px!important; color:#72e79b; }
+#selectServerPage .servers .cardFooter { flex:1; min-width:0; padding:0!important; background:none!important; }
+#selectServerPage .servers .cardText { padding:0!important; text-align:left!important; font-size:18px; font-weight:650; color:#f5f7f5; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#selectServerPage .servers .zoroServerAddress { display:block; margin-top:2px; color:#bbc8bf; font-size:14px; font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#selectServerPage > div > .verticalSection:last-child { padding:0!important; margin:16px 0 0!important; }
+#selectServerPage .btnAddServer { display:flex!important; align-items:center; justify-content:center; width:100%; min-height:48px; margin:0!important; border-radius:999px; background:#ffffff08!important; color:#d7e8dc!important; border:1px solid #496151; font-weight:600; box-shadow:none!important; box-sizing:border-box; text-decoration:none!important; }
+#selectServerPage .btnAddServer:hover { border-color:#72e79b; color:#fff!important; }
+#selectServerPage .btnAddServer:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+.layout-tv #selectServerPage > div { width:min(720px,70vw); }
+.layout-tv #selectServerPage .servers .cardBox { padding:20px 24px; }
+.layout-tv #selectServerPage .servers .cardText { font-size:24px; }
+@media(max-width:599px) { #selectServerPage > div { padding:28px 4px!important; } #selectServerPage h1.sectionTitle { font-size:32px; } }
+
+/* Native app alignment: one toolbar and artwork-led browsing. */
+html.zoro-shell-active .zoroHomeHeading { display:none!important; }
+html.zoro-shell-active .zoroHeaderActions { display:inline-flex; vertical-align:middle; flex:0 0 auto; align-items:center; gap:0; }
+html.zoro-shell-active .zoroModernHeader:has(.zoroHeaderActions) #yamsModernSupportBtn,
+html.zoro-shell-active header .headerMoonfinButton { display:none!important; }
+html.zoro-shell-active .zoroHeaderActions .zoroHomeAction { width:48px; min-width:48px; height:48px; min-height:48px; }
+@media(max-width:599px) {
+ html.zoro-shell-active:not(.layout-tv) .zoroModernBrand { width:40px; flex:0 0 40px; }
+ html.zoro-shell-active:not(.layout-tv) .zoroModernBrand img,
+ html.zoro-shell-active:not(.layout-tv) .zoroMobileBrand img { width:36px; height:36px; object-fit:contain; content:url("mark-512.png"); }
+ html.zoro-shell-active:not(.layout-tv) .zoroModernHeader .MuiToolbar-root a[href='#/search'] { width:48px; height:48px; padding:12px; box-sizing:border-box; }
+ html.zoro-shell-active:not(.layout-tv) .zoroHeaderActions .zoroHomeAction { width:48px!important; min-width:48px!important; }
+ html.zoro-shell-active:not(.layout-tv) .zoroBrowseCategories { margin-top:4px; }
+}
+.zoroBrowseContinuation { clear:both; padding-bottom:32px; }
+.zoroBrowseRow { margin:24px 0 32px; min-width:0; }
+.zoroBrowseRow h2 { margin:0 3.3% 12px; font-size:1.4em; font-weight:600; }
+.zoroBrowseTrack { display:flex; gap:18px; overflow-x:auto; overscroll-behavior-x:contain; padding:8px 3.3% 16px; scroll-padding-inline:3.3%; scrollbar-width:none; }
+.zoroBrowseTrack::-webkit-scrollbar { display:none; }
+.zoroBrowseCard { display:block; flex:0 0 clamp(150px,13.5vw,260px); min-width:0; color:inherit; text-decoration:none; border-radius:10px; }
+.zoroBrowsePoster { display:block; width:100%; aspect-ratio:2/3; height:auto; object-fit:cover; border-radius:10px; background:#242c29; }
+.zoroBrowseTitle { display:block; font-size:1em; margin-top:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.zoroBrowseMeta { display:block; color:#bbc5bd; font-size:.85em; margin-top:4px; }
+.zoroBrowseCard:hover { outline:2px solid #72e79b; outline-offset:4px; }
+.zoroBrowseCard:focus,.zoroBrowseMore button:focus-visible,.zoroSearchClear:focus-visible,.zoroSearchRetry:focus-visible { outline:3px solid #fff; outline-offset:4px; }
+.zoroBrowseMore { text-align:center; padding:16px 4% 32px; }
+.zoroBrowseMore p { color:#bbc5bd; }
+.zoroBrowseMore button,.zoroSearchRetry { min-height:48px; padding:12px 24px; background:#25372d; color:#f5f7f5; border:1px solid #536b5c; border-radius:999px; font:inherit; cursor:pointer; }
+.zoroBrowseMore[hidden],.zoroBrowseMore button[hidden],.zoroSearchClear[hidden] { display:none!important; }
+.zoroSearchBrowsing .searchSuggestions { display:none!important; }
+html.zoro-shell-active #searchPage .searchFieldsInner { position:relative; max-width:840px; margin-inline:auto; gap:12px; }
+html.zoro-shell-active #searchPage .inputContainer { position:relative; }
+html.zoro-shell-active #searchPage input.searchfields-txtSearch { padding-inline-end:56px!important; min-height:52px; }
+.zoroSearchClear { position:absolute; inset-inline-end:4px; top:50%; transform:translateY(-50%); width:48px; height:48px; border:0; border-radius:50%; background:transparent; color:#bbc5bd; font:32px/1 sans-serif; cursor:pointer; }
+/* Requests remains the dedicated external-catalogue destination. */
+html.zoro-shell-active #searchPage #jellyseerr-search-icon { display:none!important; }
+@media(max-width:599px) {
+ .zoroBrowseTrack { gap:12px; padding-inline:4%; }
+ .zoroBrowseCard { flex-basis:34vw; }
+ .zoroBrowseRow h2 { margin-inline:4%; }
+ .zoroBrowseRow { margin-block:20px 28px; }
+ html.zoro-shell-active .zoroSearchGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px 14px; }
+ html.zoro-shell-active .zoroSearchTitle { font-size:15px; }
+}
+html.layout-tv .zoroBrowseCard { flex-basis:clamp(180px,14vw,360px); }
+html.layout-tv .zoroBrowseMore button,html.layout-tv .zoroSearchRetry,html.layout-tv .zoroSearchClear { min-width:60px; min-height:60px; }
+html.layout-tv .zoroBrowseCard:focus { outline-width:5px; outline-offset:6px; }
+@media(prefers-reduced-motion:reduce) { .zoroBrowseTrack,.zoroBrowseCard { scroll-behavior:auto!important; transition:none!important; } }
+
+/* TV presentation follows the native Apple TV shell and shelves.
+ * All rules require TV mode; Jellyfin retains card actions and rail scrolling. */
+html.layout-tv.zoro-shell-active {
+  --zoro-tv-gutter:clamp(32px,2.5vw,96px);
+  --zoro-tv-control:clamp(60px,3.125vw,120px);
+  --zoro-tv-gap:clamp(12px,.9375vw,36px);
+  --zoro-tv-header:calc(var(--zoro-tv-control) + clamp(32px,1.666667vw,64px));
+  --zoro-tv-hero:clamp(360px,25vw,960px);
+  --zoro-tv-poster:clamp(180px,11.041667vw,424px);
+  --zoro-tv-landscape:clamp(280px,18.75vw,720px);
+  --zoro-tv-rail-gap:clamp(24px,1.458333vw,56px);
+  --zoro-tv-title:clamp(20px,1.145833vw,44px);
+  --zoro-tv-meta:clamp(16px,.885417vw,34px);
+  --zoro-tv-radius:clamp(12px,.625vw,24px);
+  color:#f5f7f5;
+  scroll-padding-top:calc(var(--zoro-tv-header) + 24px);
+}
+html.layout-tv.zoro-shell-active .skinHeader {
+  height:var(--zoro-tv-header)!important; min-height:var(--zoro-tv-header)!important;
+  padding:0!important; box-sizing:border-box; background:#111513!important;
+  backdrop-filter:none!important; -webkit-backdrop-filter:none!important;
+}
+html.layout-tv.zoro-shell-active .headerTop {
+  height:var(--zoro-tv-header)!important; min-height:var(--zoro-tv-header)!important;
+  padding:0 var(--zoro-tv-gutter)!important; box-sizing:border-box;
+}
+html.layout-tv.zoro-shell-active .headerRight {
+  position:absolute; right:var(--zoro-tv-gutter); top:0;
+  height:var(--zoro-tv-header); display:flex; align-items:center;
+  padding:0; gap:var(--zoro-tv-gap);
+}
+html.layout-tv.zoro-shell-active .headerRight .currentTimeText,
+html.layout-tv.zoro-shell-active .headerRight .headerSelectedPlayer:empty { display:none!important; }
+html.layout-tv.zoro-shell-active .zoroHeaderActions { gap:var(--zoro-tv-gap); }
+html.layout-tv.zoro-shell-active .headerSearchButton,
+html.layout-tv.zoro-shell-active .zoroHeaderActions .zoroHomeAction {
+  box-sizing:border-box; width:var(--zoro-tv-control)!important; height:var(--zoro-tv-control)!important;
+  min-width:var(--zoro-tv-control)!important; min-height:var(--zoro-tv-control)!important;
+  padding:0!important; margin:0!important; border-radius:50%; color:#f5f7f5;
+}
+html.layout-tv.zoro-shell-active .headerSearchButton .material-icons,
+html.layout-tv.zoro-shell-active .zoroHeaderActions .zoroShellIcon { font-size:clamp(24px,1.25vw,48px); }
+html.layout-tv.zoro-shell-active .zoroGlobalNav {
+  display:flex; height:var(--zoro-tv-header); padding:0 var(--zoro-tv-gutter);
+  gap:clamp(18px,1.5625vw,60px);
+}
+html.layout-tv.zoro-shell-active #zoroGlobalNav > .zoroBrand {
+  display:flex!important; flex:0 0 clamp(40px,2.5vw,96px); align-items:center;
+}
+html.layout-tv.zoro-shell-active .zoroBrand img { width:100%; height:clamp(40px,2.5vw,96px); object-fit:contain; }
+html.layout-tv.zoro-shell-active .zoroNavMain { display:flex; gap:var(--zoro-tv-gap); justify-content:flex-start; }
+html.layout-tv.zoro-shell-active .zoroGlobalNav a {
+  box-sizing:border-box; height:var(--zoro-tv-control); min-height:var(--zoro-tv-control);
+  font-size:var(--zoro-tv-title); line-height:1.2; padding-inline:clamp(16px,1.041667vw,40px);
+  color:#bbc5bd; transition:transform .14s ease,color .14s ease,background-color .14s ease;
+}
+html.layout-tv.zoro-shell-active .zoroNavMain a[aria-current=page] { color:#111513; background:#f5f7f5; }
+html.layout-tv.zoro-shell-active .zoroNavProfile {
+  margin-left:auto; margin-right:calc(3 * var(--zoro-tv-control) + 3 * var(--zoro-tv-gap));
+}
+html.layout-tv.zoro-shell-active .zoroNavProfile a { width:var(--zoro-tv-control); min-width:var(--zoro-tv-control); }
+html.layout-tv.zoro-shell-active .zoroProfileAvatar {
+  width:clamp(44px,2.5vw,96px); height:clamp(44px,2.5vw,96px); font-size:clamp(26px,1.458333vw,56px);
+}
+html.layout-tv.zoro-shell-active .zoroNavMain a:focus,
+html.layout-tv.zoro-shell-active .headerSearchButton:focus,
+html.layout-tv.zoro-shell-active .zoroHeaderActions button:focus {
+  outline:3px solid #72e79b!important; outline-offset:5px!important;
+  box-shadow:0 0 0 5px #111513!important; transform:scale(1.045);
+}
+html.layout-tv.zoro-shell-active .zoroNavProfile a:focus .zoroProfileAvatar { outline-color:#72e79b; }
+
+/* Inset feature artwork reserves a matching slot above the first shelf. */
+html.layout-tv.zoro-ui.zoro-native-home #slides-container {
+  top:calc(var(--zoro-tv-header) + 8px)!important; left:var(--zoro-tv-gutter)!important;
+  width:calc(100% - 2 * var(--zoro-tv-gutter))!important; height:var(--zoro-tv-hero)!important;
+  border-radius:clamp(20px,1.25vw,48px)!important;
+}
+html.layout-tv.zoro-ui.zoro-native-home .homePage {
+  padding-top:calc(var(--zoro-tv-header) + var(--zoro-tv-hero) + 32px)!important;
+}
+html.layout-tv.zoro-ui #slides-container .logo-container {
+  left:clamp(32px,2.083333vw,80px)!important; bottom:58%!important;
+  width:40%!important; height:24%!important; max-width:clamp(400px,27.083333vw,1040px)!important;
+}
+html.layout-tv.zoro-ui #slides-container .info-container {
+  left:clamp(32px,2.083333vw,80px)!important; top:46%!important;
+  font-size:var(--zoro-tv-title)!important;
+}
+html.layout-tv.zoro-ui #slides-container .plot-container {
+  left:clamp(32px,2.083333vw,80px)!important; top:56%!important; width:48%!important;
+  max-width:clamp(500px,32.291667vw,1240px)!important; font-size:clamp(18px,1.041667vw,40px)!important;
+  line-height:1.4!important; text-align:left!important;
+}
+html.layout-tv.zoro-ui #slides-container .button-container {
+  left:clamp(32px,2.083333vw,80px)!important; bottom:clamp(32px,2.083333vw,80px)!important;
+  gap:clamp(12px,.625vw,24px)!important;
+}
+html.layout-tv.zoro-ui #slides-container .button-container button {
+  min-height:var(--zoro-tv-control)!important; height:var(--zoro-tv-control)!important;
+  min-width:var(--zoro-tv-control)!important; font-size:var(--zoro-tv-title)!important;
+}
+html.layout-tv.zoro-ui #slides-container .button-container .play-button { padding-inline:clamp(24px,1.458333vw,56px)!important; }
+html.layout-tv.zoro-ui #slides-container .arrow {
+  top:clamp(20px,1.25vw,48px)!important; bottom:auto!important; left:auto!important;
+  width:var(--zoro-tv-control)!important; height:var(--zoro-tv-control)!important;
+  border-radius:50%; transform:none!important; background:#11151366;
+}
+html.layout-tv.zoro-ui #slides-container .right-arrow { right:clamp(24px,1.666667vw,64px)!important; }
+html.layout-tv.zoro-ui #slides-container .left-arrow { right:calc(clamp(24px,1.666667vw,64px) + var(--zoro-tv-control) + 12px)!important; }
+html.layout-tv.zoro-ui #slides-container .pause-button { bottom:clamp(32px,2.083333vw,80px)!important; right:clamp(32px,2.083333vw,80px)!important; }
+html.layout-tv.zoro-ui #slides-container .dots-container { bottom:clamp(46px,2.708333vw,104px)!important; right:calc(clamp(32px,2.083333vw,80px) + var(--zoro-tv-control) + 16px)!important; }
+
+/* Native rails retain their transforms and remote handlers. Extra padding gives
+ * the focused artwork room without zooming the title or clipping the ring. */
+html.layout-tv.zoro-ui .homeSectionsContainer { gap:0!important; }
+html.layout-tv.zoro-ui .homeSectionsContainer > .verticalSection { margin:0 0 24px!important; }
+html.layout-tv.zoro-ui .homeSectionsContainer .sectionTitleContainer,
+html.layout-tv.zoro-ui .homeSectionsContainer > .verticalSection > .sectionTitle {
+  padding-inline:var(--zoro-tv-gutter)!important; margin:0!important;
+}
+html.layout-tv.zoro-ui .zoroShellPage .sectionTitle,
+html.layout-tv.zoro-ui .zoroBrowseRow h2,
+html.layout-tv.zoro-ui .zoroSearchSection h2 {
+  color:#f5f7f5; font-size:clamp(26px,1.5625vw,60px)!important; line-height:1.25; font-weight:700!important; letter-spacing:-.02em;
+}
+html.layout-tv.zoro-ui .homeSectionsContainer .emby-scroller {
+  padding:24px var(--zoro-tv-gutter)!important; margin:0!important;
+}
+html.layout-tv.zoro-ui .homeSectionsContainer .card.overflowBackdropCard { width:calc(var(--zoro-tv-landscape) + var(--zoro-tv-rail-gap))!important; }
+html.layout-tv.zoro-ui .homeSectionsContainer .card.overflowPortraitCard { width:calc(var(--zoro-tv-poster) + var(--zoro-tv-rail-gap))!important; }
+html.layout-tv.zoro-ui .zoroShellPage .cardBox { margin:0 var(--zoro-tv-rail-gap) 0 0!important; padding:0!important; transform:none!important; border:0!important; }
+html.layout-tv.zoro-ui .zoroShellPage .card:focus .cardBox { outline:none!important; box-shadow:none!important; }
+html.layout-tv.zoro-ui .zoroShellPage .cardScalable {
+  border-radius:var(--zoro-tv-radius)!important; transition:transform .14s ease;
+}
+html.layout-tv.zoro-ui .zoroShellPage .cardContent { border-radius:var(--zoro-tv-radius)!important; border:0!important; }
+html.layout-tv.zoro-ui .zoroShellPage .card:focus .cardScalable {
+  outline:4px solid #f5f7f5!important; outline-offset:4px!important; box-shadow:none!important; transform:scale(1.045);
+}
+html.layout-tv.zoro-ui .zoroShellPage .cardText {
+  text-align:left!important; padding:10px 0 0!important; height:auto!important; line-height:1.25!important;
+  color:#f5f7f5; font-size:var(--zoro-tv-title)!important; font-weight:600;
+}
+html.layout-tv.zoro-ui .zoroShellPage .cardText-secondary { padding-top:4px!important; color:#bbc5bd; font-size:var(--zoro-tv-meta)!important; font-weight:400; }
+html.layout-tv.zoro-ui .zoroShellPage .quality-overlay-label { background:#111513d1!important; color:#f5f7f5!important; border-radius:999px!important; font-size:var(--zoro-tv-meta)!important; box-shadow:none!important; }
+html.layout-tv.zoro-ui .zoroShellPage .rating-tag { background:#111513d1!important; border-radius:999px!important; font-size:var(--zoro-tv-meta)!important; }
+html.layout-tv.zoro-ui .zoroShellPage .itemProgressBar { height:4px; }
+html.layout-tv.zoro-ui .zoroShellPage .itemProgressBarForeground { background:#72e79b!important; }
+html.layout-tv.zoro-ui .zoroBrowseRow { margin:0 0 24px; }
+html.layout-tv.zoro-ui .zoroBrowseRow h2 { margin:0 var(--zoro-tv-gutter); }
+html.layout-tv.zoro-ui .zoroBrowseTrack { padding:24px var(--zoro-tv-gutter); gap:var(--zoro-tv-rail-gap); scroll-padding-inline:var(--zoro-tv-gutter); }
+html.layout-tv.zoro-ui .zoroBrowseCard { flex-basis:var(--zoro-tv-poster); }
+html.layout-tv.zoro-ui .zoroBrowseTitle,
+html.layout-tv.zoro-ui .zoroSearchTitle { text-align:left; font-size:var(--zoro-tv-title); font-weight:600; line-height:1.25; margin-top:10px; }
+html.layout-tv.zoro-ui .zoroBrowseMeta,
+html.layout-tv.zoro-ui .zoroSearchMeta { text-align:left; font-size:var(--zoro-tv-meta); line-height:1.25; margin-top:4px; }
+html.layout-tv.zoro-ui .zoroBrowsePoster,
+html.layout-tv.zoro-ui .zoroSearchPoster { border-radius:var(--zoro-tv-radius); transition:transform .14s ease; }
+html.layout-tv.zoro-ui .zoroBrowseCard:focus,
+html.layout-tv.zoro-ui .zoroSearchCard:focus { outline:none; }
+html.layout-tv.zoro-ui .zoroBrowseCard:focus .zoroBrowsePoster,
+html.layout-tv.zoro-ui .zoroSearchCard:focus .zoroSearchPoster { outline:4px solid #f5f7f5; outline-offset:4px; transform:scale(1.045); }
+html.layout-tv.zoro-ui #searchPage .zoroSearchHeading { color:#f5f7f5; font-weight:700; font-size:clamp(36px,2.291667vw,88px); margin-bottom:24px; }
+html.layout-tv.zoro-ui #searchPage .searchFields { padding-inline:var(--zoro-tv-gutter); }
+html.layout-tv.zoro-ui #searchPage .searchFieldsInner { max-width:clamp(760px,50vw,1920px); }
+html.layout-tv.zoro-ui #searchPage input.searchfields-txtSearch { min-height:var(--zoro-tv-control); font-size:var(--zoro-tv-title); }
+html.layout-tv.zoro-ui .zoroSearchSection { padding:0 var(--zoro-tv-gutter); }
+html.layout-tv.zoro-ui .zoroSearchGrid { grid-template-columns:repeat(auto-fill,minmax(var(--zoro-tv-poster),1fr)); gap:32px var(--zoro-tv-rail-gap); padding:16px 0; }
+/* Respect the viewer's reduced-motion preference on every TV. */
+@media(prefers-reduced-motion:reduce) {
+ html.layout-tv.zoro-shell-active .zoroGlobalNav a,
+ html.layout-tv.zoro-shell-active .zoroHeaderActions button,
+ html.layout-tv.zoro-shell-active .headerSearchButton,
+ html.layout-tv.zoro-ui .cardScalable,
+ html.layout-tv.zoro-ui .zoroBrowsePoster,
+ html.layout-tv.zoro-ui .zoroSearchPoster { transform:none!important; transition:none!important; }
+}
+
+/* One shelf treatment for configured and continued Home rows. Native rails keep
+ * their own scrolling; discovery uses the same landscape frame and captions. */
+html.zoro-home-restoring,html.zoro-home-restoring body { scroll-behavior:auto!important; }
+html.zoro-home-restoring .homePage,html.zoro-home-restoring #slides-container { visibility:hidden!important; }
+html.zoro-ui .zoroHomeDuplicate { display:none!important; }
+html.zoro-ui.zoro-shell-active {
+  --zoro-home-art:clamp(240px,23vw,400px);
+  --zoro-home-gap:20px;
+  --zoro-home-gutter:3.3%;
+  --zoro-home-title:18px;
+  --zoro-home-meta:15px;
+}
+html.zoro-ui .homePage #homeTab :is(.homeSectionsContainer,.zoroBrowseRows) > .verticalSection { margin:16px 0 24px!important; }
+html.zoro-ui .homePage #homeTab .homeSectionsContainer { gap:0!important; }
+html.zoro-ui .homePage #homeTab .sectionTitleContainer { padding-inline:var(--zoro-home-gutter)!important; margin:0!important; }
+html.zoro-ui .homePage #homeTab .sectionTitle { margin:0!important; font-size:24px; font-weight:650; color:#f5f7f5; }
+html.zoro-ui .homePage #homeTab .sectionTitleTextButton { padding:0!important; }
+html.zoro-ui .zoroBrowseRow .sectionTitle::before { content:""; display:inline-block; width:3px; height:.82em; margin-right:.48em; border-radius:999px; background:var(--zoro-ui-accent-strong,#25b85f); vertical-align:-.04em; }
+html.zoro-ui .homePage #homeTab .homeSectionsContainer .emby-scroller,
+html.zoro-ui .homePage #homeTab .zoroBrowseTrack { padding:20px var(--zoro-home-gutter)!important; margin:0!important; }
+html.zoro-ui .homePage #homeTab .card.overflowBackdropCard { width:calc(var(--zoro-home-art) + var(--zoro-home-gap))!important; }
+html.zoro-ui .homePage #homeTab .cardBox { margin:0 var(--zoro-home-gap) 0 0!important; }
+html.zoro-ui .homePage #homeTab .cardText,
+html.zoro-ui .homePage #homeTab .zoroBrowseTitle { text-align:left!important; padding:8px 0 0!important; margin:0!important; height:auto!important; font-size:var(--zoro-home-title)!important; line-height:1.3!important; font-weight:600; color:#f5f7f5; }
+html.zoro-ui .homePage #homeTab .cardText-secondary,
+html.zoro-ui .homePage #homeTab .zoroBrowseMeta { text-align:left!important; padding:4px 0 0!important; margin:0!important; font-size:var(--zoro-home-meta)!important; line-height:1.3!important; color:#bbc5bd; font-weight:400; }
+html.zoro-ui .homePage #homeTab .zoroBrowseTrack { gap:var(--zoro-home-gap); scroll-padding-inline:var(--zoro-home-gutter); }
+html.zoro-ui .homePage #homeTab .zoroBrowseCard { flex-basis:var(--zoro-home-art); }
+html.zoro-ui .homePage #homeTab .zoroBrowsePoster { aspect-ratio:16/9; width:100%; height:auto; border-radius:12px; object-fit:cover; border:1px solid var(--zoro-ui-border,#ffffff2e); box-sizing:border-box; }
+html.zoro-ui .homePage #homeTab .zoroBrowseCard:focus { outline:none; }
+html.zoro-ui .homePage #homeTab .zoroBrowseCard:focus-visible .zoroBrowsePoster { outline:3px solid #f5f7f5; outline-offset:4px; }
+@media(max-width:599px) {
+ html.zoro-ui.zoro-shell-active { --zoro-home-art:240px; --zoro-home-gap:12px; --zoro-home-gutter:4%; --zoro-home-title:15px; --zoro-home-meta:13px; }
+ html.zoro-ui .homePage #homeTab .sectionTitle { font-size:20px; }
+ html.zoro-ui .homePage #homeTab .homeSectionsContainer .emby-scroller,
+ html.zoro-ui .homePage #homeTab .zoroBrowseTrack { padding-block:14px!important; }
+}
+html.layout-tv.zoro-ui.zoro-shell-active {
+ --zoro-home-art:var(--zoro-tv-landscape); --zoro-home-gap:var(--zoro-tv-rail-gap); --zoro-home-gutter:var(--zoro-tv-gutter);
+ --zoro-home-title:var(--zoro-tv-title); --zoro-home-meta:var(--zoro-tv-meta);
+}
+html.layout-tv.zoro-ui .homePage #homeTab .sectionTitle { font-size:clamp(26px,1.5625vw,60px)!important; font-weight:700; }
+html.layout-tv.zoro-ui .homePage #homeTab .homeSectionsContainer .emby-scroller,
+html.layout-tv.zoro-ui .homePage #homeTab .zoroBrowseTrack { padding-block:24px!important; }
+html.layout-tv.zoro-ui .homePage #homeTab .zoroBrowsePoster { border-radius:var(--zoro-tv-radius); }
+
+html.zoro-ui .zoroBrowseArtwork { display:block; position:relative; }
+html.zoro-ui .zoroBrowseRating { position:absolute; right:6px; bottom:6px; padding:2px 7px; border-radius:999px; background:#111513d1; color:#ffd000; font-size:var(--zoro-home-meta); line-height:1.2; font-weight:600; pointer-events:none; }
+
+/* Card play buttons stay overlaid on the artwork. The support theme's
+ * .paper-icon-button-light{position:relative} otherwise puts the button back in
+ * flow on touch layouts and stretches native 16:9 cards to about 5:4. */
+/* Bottom-left, clear of the rating chips in the bottom-right corner. */
+html.zoro-ui .cardScalable > .cardOverlayButton-br { position:absolute!important; left:5px!important; right:auto!important; bottom:5px!important; }
+
+/* React replaces the Modern header's class list on scroll. Anchor geometry to
+   its native component, never the presentation class added by the bridge. */
+html.zoro-shell-active:not(.layout-tv):has(header.MuiAppBar-root) {
+  --zoro-shell-header:72px!important;
+}
+html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root {
+  min-height:var(--zoro-shell-header); background:#101512f2;
+  color:#f5f7f5; box-shadow:none; border:0; z-index:1000;
+}
+html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root .MuiToolbar-root {
+  min-height:72px; justify-content:flex-end;
+}
+html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root:has(.zoroHeaderActions) #yamsModernSupportBtn {
+  display:none!important;
+}
+/* The same class rewrite must not release offscreen transform-managed cards
+   into the document width. Native touch rails retain their overflow:auto. */
+html.zoro-ui:not(.layout-tv):has(header.MuiAppBar-root) .homeSectionsContainer .emby-scroller:not(.scrollX) {
+  overflow-x:hidden;
+}
+html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root .MuiToolbar-root a:is([href='#/search'],[href^='#/search?']) {
+  display:inline-flex; align-items:center; justify-content:center; flex:0 0 48px;
+  width:48px; height:48px; padding:12px; box-sizing:border-box;
+}
+@media(min-width:600px) {
+  html.zoro-shell-active:not(.layout-tv) .skinHeader { padding-block:0; }
+  html.zoro-shell-active:not(.layout-tv) .skinHeader .headerTop { padding-inline:4%; }
+  /* The profile belongs to the same grid row as the logo and navigation. */
+  html.zoro-shell-active:not(.layout-tv) .zoroNavProfile {
+    position:static; inset:auto; transform:none; grid-column:3; grid-row:1;
+    align-self:center; justify-self:end;
+  }
+  html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav { padding-inline:4%; }
+  html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root .MuiToolbar-root {
+    padding-right:calc(4% + 56px);
+  }
+  html.zoro-shell-active:not(.layout-tv) .headerRight { padding-right:56px; }
+}
+@media(min-width:600px) and (max-width:1100px) {
+  /* A second navigation row preserves readable labels and touch targets on
+     tablets, small windows and landscape phones instead of compressing them. */
+  html.zoro-shell-active:not(.layout-tv),
+  html.zoro-shell-active:not(.layout-tv):has(header.MuiAppBar-root) {
+    --zoro-shell-header:120px!important;
+  }
+  html.zoro-shell-active:not(.layout-tv) .zoroGlobalNav {
+    grid-template-columns:minmax(0,1fr) auto minmax(192px,1fr);
+    grid-template-rows:64px 56px; column-gap:8px; row-gap:0;
+  }
+  html.zoro-shell-active:not(.layout-tv) .zoroNavMain {
+    grid-column:1/-1; grid-row:2; justify-content:center; gap:4px;
+  }
+  html.zoro-shell-active:not(.layout-tv) .zoroNavMain a {
+    font-size:14px; padding-inline:14px; min-height:48px;
+  }
+  html.zoro-shell-active:not(.layout-tv) .zoroBrand img { width:148px; }
+  html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root .MuiToolbar-root {
+    min-height:64px; height:64px;
+  }
+  html.zoro-shell-active:not(.layout-tv):not(:has(header.MuiAppBar-root)) .skinHeader {
+    min-height:120px;
+  }
+  html.zoro-shell-active:not(.layout-tv) .skinHeader .headerTop { height:64px; min-height:64px; flex-grow:0; }
+  html.zoro-shell-active:not(.layout-tv) .headerRight .headerSearchButton,
+  html.zoro-shell-active:not(.layout-tv) .zoroHeaderActions button {
+    width:48px!important; min-width:48px!important; height:48px!important;
+  }
+}
+@media(max-width:599px) {
+  html.zoro-shell-active:not(.layout-tv):has(header.MuiAppBar-root) { --zoro-shell-header:64px!important; }
+  html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root .MuiToolbar-root {
+    min-height:64px; padding-inline:16px;
+  }
+  html.zoro-shell-active:not(.layout-tv) header.MuiAppBar-root .zoroModernBrand {
+    display:flex; align-items:center; min-height:48px; margin-right:auto;
+  }
+  html.zoro-shell-search:not(.layout-tv) header.MuiAppBar-root { display:none!important; }
+}
+
+/* The shared shell measures the hidden legacy header in Modern. Give the
+   visible Modern bar its actual reserved height instead of inheriting zero. */
+html.zoro-shell-active:has(.zoroModernHeader) { --zoro-shell-header:72px!important; }
+html.zoro-shell-active .zoroModernHeader {
+  background:#101512f2; color:#f5f7f5; box-shadow:none;
+  min-height:var(--zoro-shell-header,64px); border:0;
+}
+html.zoro-shell-active .zoroModernHeader .MuiToolbar-root {
+  min-height:var(--zoro-shell-header,64px); justify-content:flex-end;
+}
+html.zoro-shell-active .zoroModernHeader { z-index:1000; }
+html.zoro-shell-active .zoroGlobalNav { z-index:1001; }
+@media(min-width:600px) {
+ html.zoro-shell-active .zoroModernHeader .MuiToolbar-root { padding-right:calc(4% + 58px); }
+}
+html.zoro-shell-active .zoroModernDuplicate { display:none!important; }
+.zoroModernBrand { display:none; }
+@media(max-width:599px) {
+  html.zoro-shell-active:has(.zoroModernHeader) { --zoro-shell-header:64px!important; }
+  html.zoro-shell-active .zoroModernBrand { display:flex; align-items:center; min-height:48px; }
+  .zoroModernBrand img { width:148px; height:36px; object-fit:contain; }
+  html.zoro-shell-active .zoroModernHeader .MuiToolbar-root { padding-inline:16px; }
+  html.zoro-shell-active .zoroModernBrand { margin-right:auto; }
+  html.zoro-shell-search .zoroModernHeader { display:none!important; }
+}
+/* Modern's page container permits horizontal overflow. Clip the Home sections
+   so off-screen cards cannot widen the document, while each row's scroller
+   keeps native horizontal scrolling (touch swipe, trackpad). overflow-x:hidden
+   on the scroller itself stopped every native row from swiping on phones. */
+html.zoro-ui:has(.zoroModernHeader) .homeSectionsContainer { overflow-x:clip; }
+html.zoro-ui:has(.zoroModernHeader) .homeSectionsContainer .emby-scroller.scrollX {
+  overflow-x:auto; overscroll-behavior-x:contain;
+}

@@ -1,0 +1,57 @@
+# Zorofin companion: drop-in Docker Compose service.
+#
+# Works two ways (see "Run with Docker Compose" in README.md):
+#   1. Add it to a stack you already run (YAMS or similar):
+#        include:
+#          - path/to/zorofin-companion/compose.yaml
+#      or: docker compose -f docker-compose.yaml -f path/to/compose.yaml up -d
+#   2. Use it from a Zorofin starter stack that defines Jellyfin, Seerr, etc.
+#
+# Nothing here points at a particular install. Compose-level knobs come from
+# the variables below (defaults in brackets); module settings go in
+# companion.env next to this file (copy companion.env.example).
+
+networks:
+  zorofin:
+    # The network Jellyfin, Seerr and the rest are on. YAMS calls it yams_network.
+    name: ${ZOROFIN_NETWORK:-yams_network}
+    external: true
+
+volumes:
+  zorofin-companion-data:
+
+services:
+  zorofin-companion:
+    # A published image once available; until then this builds from source.
+    image: ${ZOROFIN_COMPANION_IMAGE:-zorofin-companion:compose}
+    build:
+      context: ${ZOROFIN_COMPANION_SOURCE:-.}
+    env_file:
+      - path: ${ZOROFIN_COMPANION_ENV_FILE:-companion.env}
+        required: false
+    environment:
+      TZ: ${TZ:-UTC}
+      ZOROFIN_MODULES: ${ZOROFIN_MODULES:-notifications}
+      # Where Jellyfin is: a container on the network (default), Jellyfin
+      # installed on this host (http://host.docker.internal:8096) or a URL.
+      ZOROFIN_JELLYFIN_URL: ${ZOROFIN_JELLYFIN_URL:-http://jellyfin:8096}
+      ZOROFIN_SEERR_URL: ${ZOROFIN_SEERR_URL:-http://seerr:5055}
+      # Secrets are files in the secrets folder; a missing optional file just
+      # leaves that feature off. Generate them with tools/new-secrets.sh.
+      ZOROFIN_BRIDGE_SECRET_FILE: /run/zorofin/bridge-secret
+      ZOROFIN_SEERR_WEBHOOK_SECRET_FILE: /run/zorofin/seerr-webhook-secret
+      ZOROFIN_JELLYFIN_API_KEY_FILE: /run/zorofin/jellyfin-api-key
+      ZOROFIN_SEERR_API_KEY_FILE: /run/zorofin/seerr-api-key
+    volumes:
+      - ${ZOROFIN_COMPANION_DATA:-zorofin-companion-data}:/data
+      - ${ZOROFIN_COMPANION_SECRETS:-./secrets}:/run/zorofin:ro
+    # Lets the companion reach a Jellyfin installed on the host on Linux too
+    # (Docker Desktop already provides host.docker.internal).
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    # No published port: Jellyfin in a container reaches it on the network as
+    # http://zorofin-companion:9310. For Jellyfin installed on the host, add
+    # compose.host-jellyfin.yaml, which publishes it on loopback.
+    networks:
+      - zorofin
+    restart: unless-stopped

@@ -1,0 +1,20 @@
+/* Base layout for Zorofin's own Home banner (zorofin-home-banner.js). The
+ * theme's #slides-container rules place and colour everything; these supply
+ * the stacking and slide switching Media Bar's own stylesheet would. */
+#slides-container[data-zoro-banner] { position:absolute; overflow:hidden; background:#101512; color:#f4f7f5; font-family:inherit; }
+#slides-container[data-zoro-banner] .slide { position:absolute; inset:0; opacity:0; visibility:hidden; transition:opacity .6s ease, visibility 0s linear .6s; }
+#slides-container[data-zoro-banner] .slide.active { opacity:1; visibility:visible; transition:opacity .6s ease; z-index:1; }
+#slides-container[data-zoro-banner] .backdrop { display:block; }
+#slides-container[data-zoro-banner] .logo-container,
+#slides-container[data-zoro-banner] .info-container,
+#slides-container[data-zoro-banner] .plot-container,
+#slides-container[data-zoro-banner] .button-container { position:absolute; z-index:2; }
+#slides-container[data-zoro-banner] .zoroBannerTitle { margin:0; font-size:clamp(28px,3.4vw,56px); font-weight:800; line-height:1.05; letter-spacing:-.02em; text-shadow:0 2px 16px #0008; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+#slides-container[data-zoro-banner] .misc-info { color:#f4f7f5d9; font-weight:600; }
+#slides-container[data-zoro-banner] .plot { color:#f4f7f5cc; }
+#slides-container[data-zoro-banner] button { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:0; cursor:pointer; font:inherit; font-weight:700; color:inherit; }
+#slides-container[data-zoro-banner] .dots-container { position:absolute; z-index:3; display:flex; gap:8px; }
+#slides-container[data-zoro-banner] .dot { width:8px; height:8px; min-height:0; padding:0; border-radius:50%; background:#ffffff59; transition:width .3s ease, background .3s ease; }
+#slides-container[data-zoro-banner] .dot.active { width:22px; border-radius:4px; background:#f4f7f5; }
+#slides-container[data-zoro-banner] .pause-button { position:absolute; z-index:3; color:#f4f7f5; }
+@media (prefers-reduced-motion: reduce) { #slides-container[data-zoro-banner] .slide { transition:none; } }

@@ -1,0 +1,84 @@
+/* Zorofin Home primary navigation. Native contextual tabs remain untouched. */
+
+.skinHeader .headerTabs.sectionTabs.zoroPrimaryNav {
+  box-sizing: border-box;
+}
+
+.skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .emby-tabs-slider {
+  align-items: center;
+  display: flex !important;
+  max-width: min(calc(100vw - 116px), 520px);
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .emby-tabs-slider::-webkit-scrollbar {
+  display: none;
+}
+
+.skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .zoroPrimaryNavLink {
+  color: rgba(245, 248, 246, .84) !important;
+  flex: 0 0 auto;
+  text-decoration: none !important;
+}
+
+.skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .zoroPrimaryNavLink:hover {
+  background: var(--zoro-accent-surface, rgba(37, 184, 95, .18)) !important;
+  color: #fff !important;
+}
+
+.skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .zoroPrimaryNavLink:focus-visible {
+  background: var(--zoro-accent-surface-strong, rgba(37, 184, 95, .32)) !important;
+  color: var(--zoro-accent-soft, #72e79b) !important;
+  outline: 3px solid var(--zoro-focus, #f6fbf7) !important;
+  outline-offset: 2px !important;
+}
+
+.skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .zoroPrimaryNavNativeFavorite[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 599px) {
+  .skinHeader .headerTabs.sectionTabs.zoroPrimaryNav {
+    display: none !important;
+  }
+
+  /* Jellyfin reserves a two-row absolute-tab offset for Home. Once the
+   * destination strip is hidden, reduce that reservation to the native global
+   * toolbar plus any device safe area so artwork starts directly below it. */
+  .homePage.zoro-primary-nav-active {
+    padding-top: calc(3.5em + env(safe-area-inset-top, 0px)) !important;
+  }
+}
+
+.layout-tv .skinHeader .headerTabs.sectionTabs.zoroPrimaryNav {
+  max-width: none;
+}
+
+.layout-tv .skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .emby-tabs-slider {
+  max-width: min(68vw, 1040px);
+}
+
+.layout-tv .skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .emby-tab-button {
+  font-size: clamp(1rem, 1vw, 2rem);
+  height: clamp(60px, 4vw, 120px);
+  margin-inline: clamp(3px, .35vw, 7px) !important;
+  min-height: clamp(60px, 4vw, 120px);
+  padding-inline: clamp(22px, 1.6vw, 44px) !important;
+}
+
+.layout-tv .skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .emby-tab-button:focus-visible,
+.layout-tv .skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .emby-tab-button.focused {
+  outline: clamp(4px, .25vw, 8px) solid var(--zoro-focus, #f6fbf7) !important;
+  outline-offset: clamp(2px, .15vw, 4px) !important;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .skinHeader .headerTabs.sectionTabs.zoroPrimaryNav .emby-tab-button {
+    transition: none !important;
+  }
+}

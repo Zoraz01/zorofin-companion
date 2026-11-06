@@ -1,0 +1,420 @@
+# Zorofin companion
+
+Status: **early (v0.1.0)**. Modules shipping: `notifications`, `liveTvGuide`, `recommendations`, `webUi`.
+
+License: AGPL-3.0-only (see [LICENSE](LICENSE)); bundled third-party files are
+listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). "Zorofin" and the
+Zorofin logo are not covered by the code license; see
+[TRADEMARKS.md](TRADEMARKS.md). To help, read [CONTRIBUTING.md](CONTRIBUTING.md);
+to report a vulnerability, read [SECURITY.md](SECURITY.md). The companion is
+built largely with AI coding assistants, reviewed and tested by its maintainer.
+
+The companion is the optional half of Zorofin's server backend. The
+[Zorofin Jellyfin plugin](https://github.com/Zoraz01/jellyfin-plugin-zorofin) handles everything that
+must run inside Jellyfin. The companion runs as its own container and will carry
+the modules that benefit from isolation:
+
+| Module | Status | Replaces |
+| --- | --- | --- |
+| `notifications` | **Available** | A separate request-alert service |
+| `liveTvGuide` | **Available** | Hand-run guide enrichment scripts |
+| Channel logos | **Available** inside `liveTvGuide` | Hand-picked channel logos |
+| `recommendations` | **Available** (deterministic ranking; optional AI ranking with your own key) | Hand-made Home shelves |
+| `webUi` | **Available**; ships the Zorofin theme, Live TV pages, Requests hub (off by default) and web player | JavaScript Injector and custom CSS |
+| `recap` | Later | — |
+
+
+A Zorofin server works without the companion. Apps only see a companion module
+when the plugin's capability manifest lists it.
+
+## How it connects
+
+```
+Zorofin app ──Jellyfin session──▶ Jellyfin + Zorofin plugin ──signed bridge──▶ companion
+Seerr ──webhook (Bearer secret)──────────────────────────────────────────────▶ companion
+```
+
+- Apps never talk to the companion directly. They call
+  `/Zorofin/Companion/{module}/...` on their Jellyfin server; the plugin checks
+  the Jellyfin session and forwards the request with the viewer's id, signed
+  with a shared secret. The viewer's Jellyfin token is never forwarded.
+- The bridge contract is public and versioned:
+  [COMPANION_BRIDGE.md](https://github.com/Zoraz01/jellyfin-plugin-zorofin/blob/main/docs/COMPANION_BRIDGE.md) in the plugin repository.
+  It is the only thing the two programs share. Do not copy plugin (GPL) code
+  here or companion code into the plugin.
+- Seerr webhooks go straight to the companion at `POST /v1/hooks/seerr`.
+
+## Routes
+
+| Route | Auth | Purpose |
+| --- | --- | --- |
+| `GET /health` | none | Liveness; returns status, service and version only |
+| `GET /v1/capabilities` | bridge, no viewer | Features merged into the plugin's manifest |
+| `GET/POST /v1/modules/{module}/{path}` | bridge, viewer required | Module routes; JSON bodies up to 64 KB |
+| `POST /v1/hooks/seerr` | `Authorization: Bearer <webhook secret>` | Seerr events; 404 unless a module listens |
+| `GET /v1/public/{module}/{path}` | Checked by the module (e.g. a token in the path) | Files Jellyfin itself reads, such as the guide |
+| `GET /v1/admin/settings` | bridge, Jellyfin administrator | Every settings section, secrets shown only as set or not set |
+| `POST /v1/admin/settings/{section}` | bridge, Jellyfin administrator | Save one section; applied at once, refused (422) if a module that is on can't start |
+| `POST /v1/admin/settings/{section}/test` | bridge, Jellyfin administrator | Check a section's settings and addresses without saving |
+
+## Configuration
+
+**From the Jellyfin Dashboard (recommended):** Dashboard → Plugins → Zorofin →
+**Companion settings** lists Connections and every module, each with an on/off
+switch, its settings, a **Test** button and **Save**. Changes apply right away
+without a restart. Saved values are kept in `<data>/settings.json` (mode 600)
+and take the place of the matching environment variables below, which stay as
+defaults. Keys are write-only: the page only shows whether one is saved. The
+option lists are in [src/settings/schemas.js](src/settings/schemas.js).
+The bridge secret, Seerr webhook secret, address, port and data folder can only
+be set on the container.
+
+**From environment variables:** every setting can also be set on the
+container. Any secret can instead be read from a
+file named by `<NAME>_FILE` (Docker secrets).
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `ZOROFIN_BRIDGE_SECRET` | required | At least 32 characters. The same value goes in the plugin's settings |
+| `ZOROFIN_SEERR_WEBHOOK_SECRET` | empty | At least 32 characters when set; enables the Seerr webhook |
+| `ZOROFIN_JELLYFIN_URL` | empty | How the companion reaches Jellyfin (for modules that read the library) |
+| `ZOROFIN_JELLYFIN_API_KEY` | empty | A Jellyfin API key for the companion's own read-only calls |
+| `ZOROFIN_MODULES` | empty | Comma-separated module ids to enable |
+| `ZOROFIN_COMPANION_BIND` | `127.0.0.1` (`0.0.0.0` in the image) | Listen address |
+| `ZOROFIN_COMPANION_PORT` | `9310` | Listen port |
+| `ZOROFIN_DATA_DIR` | `./data` (`/data` in the image) | Module state |
+
+The process exits with code 78 on a core configuration error (bridge secret,
+port, Jellyfin address) or an unknown module id. A module whose own settings
+are incomplete stays off instead, and the Dashboard shows why.
+
+Generate a secret with `openssl rand -hex 32`.
+
+## Develop and test
+
+```sh
+npm test                      # node:test, no dependencies
+ZOROFIN_BRIDGE_SECRET=$(openssl rand -hex 32) npm start
+docker build -t zorofin-companion:dev .
+```
+
+## Run with Docker Compose
+
+`compose.yaml` in this folder is a drop-in service. It has no paths or names
+from any particular install, and runs on Linux, NAS boxes and macOS (Docker
+Desktop).
+
+**Add it to a stack you already run** (for example a YAMS install):
+
+```yaml
+# in your docker-compose.yaml (Compose 2.20 or later)
+include:
+  - path/to/zorofin-companion/compose.yaml
+```
+
+or `docker compose -f docker-compose.yaml -f path/to/zorofin-companion/compose.yaml up -d`.
+It joins your existing network and finds services by their usual names.
+
+**Or start from a Zorofin stack**, which includes the same file next to
+Jellyfin, Seerr and the rest.
+
+Steps:
+
+1. `tools/new-secrets.sh` creates `secrets/` with a bridge secret and a
+   Seerr webhook secret. Add `jellyfin-api-key` and `seerr-api-key` files
+   there if your modules need them.
+2. `cp companion.env.example companion.env` and fill in the modules you use.
+3. Set the variables below in your stack's `.env` if the defaults don't fit.
+4. `docker compose up -d zorofin-companion`.
+5. In Jellyfin, Dashboard → Plugins → Zorofin: set **Companion URL** and
+   **Companion secret** (the bridge secret).
+
+| Variable | Default | Change it when |
+| --- | --- | --- |
+| `ZOROFIN_NETWORK` | `yams_network` | Your services are on another Docker network |
+| `ZOROFIN_JELLYFIN_URL` | `http://jellyfin:8096` | Jellyfin runs on the host (`http://host.docker.internal:8096`) or elsewhere |
+| `ZOROFIN_SEERR_URL` | `http://seerr:5055` | Seerr has another name, such as `http://jellyseerr:5055` |
+| `ZOROFIN_MODULES` | `notifications` | You want other modules |
+| `ZOROFIN_COMPANION_IMAGE` | `zorofin-companion:compose` (built from this folder) | You use a published image |
+| `ZOROFIN_COMPANION_DATA` | a named volume | You want the data in a folder |
+| `ZOROFIN_COMPANION_SECRETS` | `./secrets` | Your secrets live elsewhere |
+| `ZOROFIN_COMPANION_PUBLISH` | `127.0.0.1:9310` | Only with `compose.host-jellyfin.yaml`; never expose it to the internet |
+
+**Companion URL for the plugin:** `http://zorofin-companion:9310` when
+Jellyfin is a container on the same network. When Jellyfin runs on the host,
+also add `compose.host-jellyfin.yaml` (it publishes the port on loopback) and
+use `http://localhost:9310`.
+
+Stopping the companion leaves Jellyfin working as plain Jellyfin: the plugin
+switches the Zorofin features off.
+
+## Module: notifications
+
+Tells a viewer when a title they requested is ready. Seerr sends
+`MEDIA_AVAILABLE`, the companion checks that the title is visible to that
+viewer in Jellyfin, then sends email and/or push. Undelivered alerts are retried
+every minute for 6 hours, and each channel is retried separately. Delivery
+records are kept 30 days.
+
+Channels use the operator's own accounts (guided setup asks for them):
+
+| Variable | Notes |
+| --- | --- |
+| `ZOROFIN_NOTIFY_EMAIL_API_KEY`, `ZOROFIN_NOTIFY_EMAIL_FROM` | Resend API key and sender. Both or neither |
+| `ZOROFIN_NOTIFY_EMAIL_REPLY_TO`, `ZOROFIN_NOTIFY_EMAIL_LOGO` | Optional reply-to and PNG logo path |
+| `ZOROFIN_NOTIFY_EMAIL_API_URL` | Default `https://api.resend.com` |
+| `ZOROFIN_NOTIFY_NTFY_URL`, `ZOROFIN_NOTIFY_NTFY_TOKEN` | ntfy server the companion publishes to, and its token |
+| `ZOROFIN_NOTIFY_NTFY_PUBLIC_URL` | ntfy address viewers subscribe to, if different |
+| `ZOROFIN_NOTIFY_NTFY_ADMIN_TOKEN` | Optional ntfy admin token. Each viewer then gets a private read-only ntfy login for their topic |
+| `ZOROFIN_SERVER_NAME`, `ZOROFIN_APP_URL` | Name and link shown in alerts |
+
+It also needs `ZOROFIN_JELLYFIN_URL`, `ZOROFIN_JELLYFIN_API_KEY` and
+`ZOROFIN_SEERR_WEBHOOK_SECRET`. In Seerr, add a webhook for **Request
+Available** to `http://<companion>:9310/v1/hooks/seerr` with
+`Authorization: Bearer <webhook secret>` and a JSON payload that includes
+`notification_type`, `request_id`, `requestedBy_jellyfinUserId`, `subject`,
+`media_status`, `media_type`, `media_jellyfinMediaId`, `media_tmdbid` and
+`media_tvdbid`. Do not include email fields.
+
+App routes, through the plugin at `/Zorofin/Companion/notifications/...`:
+
+| Route | Purpose |
+| --- | --- |
+| `GET preferences` | Available channels and this viewer's settings |
+| `POST preferences` | `{ "emailEnabled": bool, "ntfyEnabled": bool }` |
+| `POST preferences/email` | `{ "address": "..." }` sends a 6-digit code (3 per hour) |
+| `POST preferences/email/confirm` | `{ "code": "123456" }`; 5 tries per code, 30-minute expiry |
+| `POST preferences/email/remove` | Removes the address |
+| `POST preferences/push/reset-password` | New password for the viewer's private ntfy login |
+| `POST preferences/test` | `{ "channel": "email" \| "ntfy" }`; 3 per hour |
+| `GET status` | Admins only: counts, no addresses |
+
+Turning push on returns `ntfyPassword` once when private logins are enabled;
+turning it off deletes the login, and the next opt-in gets a new topic.
+
+An email address is never taken from Seerr. It is used only after the viewer
+confirms a code sent to it. Turning off every channel also deletes that
+viewer's delivery history.
+
+## Module: liveTvGuide
+
+Serves the operator's XMLTV guide back to Jellyfin, improved:
+- sports listings get the matchup in the title ("NBA Basketball — Bulls vs
+  Lakers") when the description names the teams;
+- programmes without artwork get a show poster (TVmaze) or a matchup card
+  (TheSportsDB), copied to the companion so Jellyfin never depends on those
+  sites staying up;
+- channels without a logo get one from the public
+  [tv-logos](https://github.com/tv-logo/tv-logos) collection for the countries
+  the operator picks. Logos are broadcasters' trademarks; the operator's server
+  fetches them for its own guide and Zorofin ships none.
+
+Works with any XMLTV source: Threadfin, xTeVe, a tuner's guide or a listings
+service. If the source breaks, Jellyfin keeps getting the last good guide.
+Provider-specific rules (event-channel gating, pinned channel numbers, PPV
+slots) are deliberately not part of this module; add them as a private module.
+
+| Variable | Notes |
+| --- | --- |
+| `ZOROFIN_GUIDE_SOURCE_URL` | Required. The XMLTV address your tuner or guide tool publishes |
+| `ZOROFIN_GUIDE_TOKEN` | Required. 32+ letters/digits; part of the URL Jellyfin reads |
+| `ZOROFIN_GUIDE_PUBLIC_URL` | How Jellyfin reaches the companion, e.g. `http://zorofin-companion:9310`. Needed for artwork |
+| `ZOROFIN_GUIDE_TVMAZE` | `1` to look up show posters on TVmaze (CC BY-SA; operator opts in) |
+| `ZOROFIN_GUIDE_SPORTSDB_KEY` | The operator's own TheSportsDB key, for matchup cards |
+| `ZOROFIN_GUIDE_CHANNEL_LOGOS` | `1` to add channel logos from tv-logos |
+| `ZOROFIN_GUIDE_LOGO_COUNTRIES` | tv-logos country folders, default `united-states` (e.g. `united-states,united-kingdom`) |
+| `ZOROFIN_GUIDE_MATCHUP_TITLES` | `0` to leave titles unchanged |
+| `ZOROFIN_GUIDE_REFRESH_MINUTES` | Default 30 |
+
+Lookups are cached and rate-limited (TVmaze 60 new shows per refresh,
+TheSportsDB 6 new matchups per refresh, spaced for its free tier; the tv-logos
+file list is fetched at most weekly). Without
+either source the module only adds matchup titles and makes no outside calls.
+
+In Jellyfin: **Dashboard → Live TV → TV Guide Data Providers → XMLTV**, file
+or URL `http://zorofin-companion:9310/v1/public/liveTvGuide/<token>/guide.xml`,
+replacing the direct guide URL. Admins can check `GET status` or trigger
+`POST refresh` at `/Zorofin/Companion/liveTvGuide/...`.
+
+## Module: recommendations
+
+A personal "Recommended to request" row of movies that are not on the server
+and not requested yet. Taste comes from the viewer's completed and favorite
+movies, their own Seerr requests (automated requests are ignored) and their
+feedback. Candidates come from Seerr's movie recommendations, so no separate
+TMDB key is needed. A viewer needs at least three completed movies; otherwise
+the row stays hidden. There is no generic fallback.
+
+Ranking is deterministic by default: titles suggested by several of the
+viewer's favorite movies rise to the top, then rating and vote count break ties.
+
+**Optional AI ranking** (off unless the operator turns it on, with their own
+key). The AI only reorders the top 60 requestable candidates and adds a short
+reason to each; ids it invents are dropped. If the AI call fails or returns
+fewer than ten usable items, the feed uses the standard ranking. The feed
+reports `ranking: "ai"` or `"standard"`.
+
+| Variable | Notes |
+| --- | --- |
+| `ZOROFIN_RECOMMENDATIONS_AI` | `anthropic`, `openai` (any OpenAI-compatible chat API) or `off` (default) |
+| `ZOROFIN_RECOMMENDATIONS_AI_KEY` | The operator's API key (or `_FILE`). Optional only with a custom URL, for a local server |
+| `ZOROFIN_RECOMMENDATIONS_AI_MODEL` | Defaults: `claude-haiku-4-5` / `gpt-4o-mini` |
+| `ZOROFIN_RECOMMENDATIONS_AI_URL` | Custom endpoint, e.g. OpenRouter or a local Ollama `http://ollama:11434/v1/chat/completions` |
+
+Titles and overviews go to the chosen AI service with the viewer's top watched
+and favorite titles (no names, emails or Jellyfin ids).
+
+Needs `ZOROFIN_SEERR_URL`, `ZOROFIN_SEERR_API_KEY`, `ZOROFIN_JELLYFIN_URL` and
+`ZOROFIN_JELLYFIN_API_KEY`.
+
+| Route | Purpose |
+| --- | --- |
+| `GET feed` | `{ state, items }`; `state` is `preparing`, `not_enough_history` or `ready` |
+| `POST feedback` | `{ "tmdbId": n, "action": "not_interested" \| "seen" \| "requested" \| "more_like_this" }` |
+
+Feeds are built on first use, rechecked after 6 hours and rebuilt at least
+weekly or when the viewer's taste changes. If Seerr fails, the last good feed
+stays. Requesting a title uses the plugin's Requests routes, so Seerr
+permissions and quotas still apply.
+
+## Module: webUi
+
+Serves the Zorofin look and web features to Jellyfin's own web client. The
+plugin adds one loader script to jellyfin-web when its **Zorofin look in the
+web client** setting is on; the loader reads `manifest.json` from this module
+and adds the listed styles and scripts. Files come from one flat folder,
+`ZOROFIN_WEB_UI_DIR` (default `web-ui/` next to `src/`):
+
+- `*.css` files are listed as styles and `*.js` files as scripts, in name
+  order, so prefixes such as `10-theme.css` set the order.
+- Names starting with `_` are served but not listed. Only `css`, `js`, `json`,
+  `svg`, `png`, `webp` and `woff2` files are served; subfolders and symbolic
+  links are not.
+- The module advertises `webUi` as enabled only while there is a style or
+  script to load, so an empty folder leaves Jellyfin's web client plain.
+- A file whose name starts with an order number and a part name belongs to
+  that part, and is left out while the part is switched off:
+
+  | Part | Files | Setting (Dashboard → Zorofin → Look & player) | Environment | Default |
+  | --- | --- | --- | --- | --- |
+  | Theme | `NN-theme-*` | Zorofin theme | `ZOROFIN_WEB_UI_THEME` | on |
+  | Player | `NN-player*` | Zorofin player | `ZOROFIN_WEB_UI_PLAYER` | on |
+  | Home banner | `NN-banner-*` | Home banner (needs the theme) | `ZOROFIN_WEB_UI_BANNER` | on |
+  | Live TV | `NN-livetv-*` | Live TV pages and guide (needs the theme) | `ZOROFIN_WEB_UI_LIVE_TV` | on |
+  | Requests hub | `NN-requests-*` | Requests hub (needs the theme and Seerr set up in the plugin's Connect step) | `ZOROFIN_WEB_UI_REQUESTS` | off |
+
+- **Requests hub** (`branding/zorofin-requests.js`): talks to the plugin's
+  `/Zorofin/Requests` routes as the signed-in viewer, so Jellyfin Enhanced
+  isn't needed. Seerr's address and key live in the plugin's Connect step;
+  Radarr and Sonarr there add download progress to My requests. On a
+  server that loads the scripts some other way, the hub uses Jellyfin
+  Enhanced until `window.ZorofinRequestsSource = 'plugin'` is set.
+- **Server messages** (`branding/zorofin-server-messages.js`, part of the
+  theme): the message written in the plugin's Announcement tab, listed first in
+  the Notifications panel with its optional button and Mark read. While it is
+  unread the Notifications button shows a dot. It reads `/Zorofin/Announcement`;
+  marking it read hides it on the account's other devices too. There is no
+  banner over Home. Without a separate support inbox,
+  Notifications shows only this message. Nothing shows while the plugin has no
+  announcement on.
+- **Home banner** (`branding/zorofin-home-banner.js`): up to eight unwatched
+  movies and shows with backdrop art, picked at random from the viewer's own
+  libraries, rotating across the top of Home every 8 seconds with Play, More
+  info and My List. It refreshes every 30 minutes and when the signed-in user
+  changes, and swipes on touch screens. It draws the same `#slides-container`
+  markup the theme styles for the Media Bar plugin, so the Media Bar plugin
+  isn't needed; if it is installed, the Zorofin banner steps aside.
+- **Sports artwork** (Look & player → Team crests and game photos,
+  `ZOROFIN_WEB_UI_SPORTS_ART`, off by default; needs the Live TV pages): the
+  companion builds an `events.json` catalogue, so the
+  Home sports row gets game photos and team crests. Every 30 minutes (at most
+  every 10) it reads the next two days of NFL, NBA, MLB, NHL, Premier League,
+  Championship, Champions League, Europa League, Conference League, Serie A,
+  Ligue 1 and Women's Super League fixtures from ESPN's public scoreboard,
+  then looks up a dated game photo on TheSportsDB (with
+  `ZOROFIN_GUIDE_SPORTSDB_KEY` if set, otherwise its free public key) and
+  falls back to the two ESPN team crests. Only PNG and JPEG from those hosts
+  are kept, checked and stripped of metadata, under content-hashed names in
+  `<data>/webUi/sports-art/art/`. `ZOROFIN_WEB_UI_SPORTS_ART_MAX_MB` (default
+  200) caps the folder; unused files go after two days, or oldest first when
+  it is full. Zorofin ships no team or broadcaster art: it is downloaded by
+  the operator's own server only when they turn this on. Off, or when a
+  download fails, the row uses the guide's own image and Zorofin's sport
+  illustrations. The manifest adds the `zorofin-sports-art` class so the row
+  knows to ask. Admins can read `GET /v1/modules/webUi/sportsArt` (games,
+  photos, crests, disk used, last run) and `POST .../sportsArt/refresh`.
+  The worker is `src/modules/webUi/sportsArt.js`.
+- **Colours and logo** (Look & player, or environment):
+
+  | Setting | Environment | Values |
+  | --- | --- | --- |
+  | Colours | `ZOROFIN_WEB_UI_COLORS` | `zorofin` (default), `ocean`, `violet`, `rose`, `amber`, `crimson`, `graphite`, `custom` |
+  | Accent colour | `ZOROFIN_WEB_UI_ACCENT` | `#rrggbb`, used with `custom` |
+  | Logo | `ZOROFIN_WEB_UI_LOGO` | `zorofin` (default), `custom`, `none` |
+  | Logo for wide screens | `ZOROFIN_WEB_UI_LOGO_DESKTOP` | path to a PNG, JPEG or WebP (up to 1 MB) |
+  | Logo for phones and TVs | `ZOROFIN_WEB_UI_LOGO_MOBILE` | path to an image; falls back to the wide logo |
+
+  The theme is written in Zorofin green. With another colour, every green in
+  its stylesheets and scripts is turned to the accent's hue, keeping each
+  colour's lightness, so contrast stays as designed (`src/modules/webUi/palette.js`).
+  Logos uploaded in the Dashboard are kept in `<data>/uploads/` and served in
+  place of `wordmark.png` and `mark-512.png`; "No logo" adds `32-theme-brand.css`,
+  which hides them.
+- `manifest.json` carries a `version` that changes with the files, colours
+  and logo. The plugin loads files under `ui/{version}/` and lets browsers
+  cache them for a day, so a change shows on the next reload.
+- `manifest.json` also lists `classes` for the page's `<html>` element:
+  `zoro-ui` while theme files load, and `zorofin-off-<part>` for each part
+  that is off, so the theme can hide links to it. The plugin's loader adds
+  them before the styles.
+
+### The Zorofin theme
+
+`web-ui/` is built from the Zorofin web look's sources (`branding/` in the
+main Zorofin repository) by `tools/build-companion-web-ui.cjs`, which fails with
+`--check` when the folder is out of date. Change the sources and rebuild rather
+than editing `web-ui/` by hand. The pack has the same look as Zorofin's own web
+release: the pinned Better Jellyfin UI base and Inter font,
+the Zorofin shell and navigation, sign-in, Home layout and card badges,
+detail pages, episode navigation, collections, search and the account menu.
+
+Left out for now, because they need services the companion doesn't have yet:
+the Support button, request alerts bell, download quality, Rewind, the
+recommendations row and Live TV availability. Links to them are hidden. They
+come back as companion modules serve their data. A server without the Home
+Screen Sections, Jellyfin Enhanced and Media Bar plugins gets the theme over
+Jellyfin's own Home.
+Home rows now come from the plugin instead of Home Screen Sections: with the
+plugin's Home tab on, `35-theme-home-plugin.js` draws every Home row from
+`/Zorofin/Home/Sections` (see the plugin README).
+
+The image also ships the **Zorofin web player**
+(`40-player.js`): the apps' player layout over Jellyfin web's own video
+player. Jellyfin keeps streaming, tracks, subtitles, quality and watch
+progress; the Zorofin controls drive Jellyfin's hidden controls and follow its
+show/hide. Delete the file (or point `ZOROFIN_WEB_UI_DIR` elsewhere) to keep
+Jellyfin's own player. Escape closes Jellyfin's player sheets, and with
+Jellyfin Mobile's Native Video Player it hands over full screen and hides the
+header and dock. Its browser test lives with the web look's sources in the main
+Zorofin repository.
+
+The files load before sign-in, so they are served on the public route
+(`GET /v1/public/webUi/{file}`) and must not contain viewer data or secrets.
+Signed-in features call other modules through the plugin's bridge as usual.
+
+## Private modules
+
+A server can add modules it keeps to itself with
+`ZOROFIN_PRIVATE_MODULES_DIR`. Each `.js` file there exports
+`{ id, create(config, deps) }` and is enabled through `ZOROFIN_MODULES` like any
+other. Private modules cannot reuse a built-in id. Use this for rules that only make
+sense on your own server, such as one provider's Live TV quirks.
+
+## Adding a module
+
+See the interface comment in [src/modules/index.js](src/modules/index.js). A
+module advertises exactly one capability named after its id, so the plugin can
+proxy only the modules the manifest lists. Add its options to
+[src/settings/schemas.js](src/settings/schemas.js), each naming the environment
+variable the module reads, so it shows up in the Dashboard. Add tests under
+`test/`.

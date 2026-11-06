@@ -1,0 +1,19 @@
+/* Zorofin web look: hide links to parts that are switched off or need the reference server's own services. */
+html.zorofin-off-requests a[data-destination="requests"],
+html.zorofin-off-requests .zoroSearchRequestsLink,
+html.zoro-ui [data-home-action="Support"],
+html.zoro-ui [data-home-action="Notifications"],
+html.zoro-ui [data-zoro-notifications] { display: none !important; }
+
+/* The reference server replaces Jellyfin's logo files; here the theme points at the Zorofin art instead. */
+html.zoro-ui .pageTitleWithDefaultLogo,
+html.zoro-ui .pageTitleWithLogo { background-image: url("wordmark.png") !important; }
+html.zoro-ui .splashLogo { background-image: url("mark-512.png") !important; }
+html.zoro-ui img[src*="icon-transparent"] { content: url("mark-512.png"); }
+
+/* No Media Bar banner on this server: start Home right under the header. */
+html.zoro-ui.zoro-native-home.zoro-no-banner .homePage { padding-top: calc(var(--zoro-shell-header, 72px) + 8px) !important; }
+html.zoro-ui.zoro-native-home.zoro-no-banner .zoroMobileHeroSlot { display: none !important; }
+
+/* Titles with no genres, studios or people: drop the empty details panel. */
+html.zoro-ui .itemDetailsGroup:not(:has(> :not(.hide):not(:empty))) { display: none !important; }

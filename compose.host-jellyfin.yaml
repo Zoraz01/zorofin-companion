@@ -1,0 +1,9 @@
+# Add with compose.yaml when Jellyfin is installed on the host, not in a
+# container. Publishes the companion on loopback so the plugin can call
+# http://localhost:9310 (change the host port if 9310 is taken).
+services:
+  zorofin-companion:
+    environment:
+      ZOROFIN_JELLYFIN_URL: ${ZOROFIN_JELLYFIN_URL:-http://host.docker.internal:8096}
+    ports:
+      - ${ZOROFIN_COMPANION_PUBLISH:-127.0.0.1:9310}:9310

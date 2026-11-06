@@ -1,0 +1,590 @@
+/*
+ * Zorofin Live TV.
+ * Native Jellyfin routing, guide behavior, card actions, and playback remain
+ * authoritative. Graphite owns surfaces; green is limited to progress, focus,
+ * live state, and the primary Watch live action.
+ */
+
+:root {
+  --zoro-live-accent: var(--zoro-accent, #42d779);
+  --zoro-live-accent-strong: var(--zoro-accent-strong, #25b85f);
+  --zoro-live-accent-soft: var(--zoro-accent-soft, #72e79b);
+  --zoro-live-accent-ink: var(--zoro-accent-ink, #041208);
+  --zoro-live-surface: rgba(17, 22, 19, .96);
+  --zoro-live-surface-raised: rgba(27, 34, 30, .96);
+  --zoro-live-border: rgba(255, 255, 255, .11);
+  --zoro-live-muted: rgba(232, 239, 235, .68);
+}
+
+.zoroLiveTvHiddenControl[hidden],
+#itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons .zoroLiveTvHiddenControl[hidden],
+.skinHeader .headerTabs .zoroLiveTvHiddenControl[hidden] {
+  display: none !important;
+}
+
+html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tabs-slider {
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tab-button {
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 18px !important;
+}
+
+html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tab-button-active {
+  background: var(--zoro-accent-surface-strong, rgba(37, 184, 95, .32)) !important;
+  border-color: var(--zoro-accent-border, rgba(114, 231, 155, .58)) !important;
+  color: #fff !important;
+}
+
+html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tab-button:focus-visible,
+html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tab-button.show-focus:focus {
+  background: var(--zoro-live-accent-strong) !important;
+  color: var(--zoro-live-accent-ink) !important;
+  outline: 3px solid var(--zoro-focus, #f6fbf7) !important;
+  outline-offset: 3px !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .liveTvContainer {
+  margin-inline: auto;
+  max-width: 2300px;
+  padding-bottom: max(44px, env(safe-area-inset-bottom));
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .verticalSection {
+  margin-bottom: clamp(30px, 4vw, 64px);
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .sectionTitleContainer {
+  margin-bottom: clamp(12px, 1.5vw, 22px);
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .sectionTitle {
+  color: #f7faf8;
+  font-size: clamp(1.45rem, 2vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -.025em;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer,
+#liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items {
+  box-sizing: border-box;
+  display: grid !important;
+  gap: clamp(16px, 1.65vw, 28px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer > .card,
+#liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items > .card {
+  margin: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .cardBox {
+  margin: 0 !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .cardScalable {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--zoro-live-border);
+  border-radius: clamp(14px, 1.3vw, 22px);
+  box-shadow: 0 15px 36px rgba(0, 0, 0, .24);
+  overflow: hidden;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .cardPadder {
+  padding-bottom: 56.25% !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .cardImageContainer,
+#liveTvSuggestedPage.zoro-live-tv-active .cardImage {
+  background-color: var(--zoro-live-surface-raised) !important;
+  background-size: contain !important;
+  border-radius: inherit;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .cardText {
+  color: var(--zoro-live-muted);
+  line-height: 1.35;
+  margin-top: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .cardText-first,
+#liveTvSuggestedPage.zoro-live-tv-active .cardText:first-of-type {
+  color: #f5f8f6;
+  font-weight: 650;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .activeProgramItems .cardScalable::after {
+  background: rgba(5, 18, 10, .9);
+  border: 1px solid rgba(114, 231, 155, .55);
+  border-radius: 999px;
+  color: var(--zoro-live-accent-soft);
+  content: "LIVE";
+  font-size: .68rem;
+  font-weight: 850;
+  left: 12px;
+  letter-spacing: .11em;
+  padding: 6px 9px;
+  position: absolute;
+  top: 12px;
+  z-index: 3;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvCardWithPlay .cardOverlayContainer,
+#liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvCardWithPlay .cardOverlayButton-br {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvPlayButton,
+#itemDetailPage.zoro-live-tv-channel-detail .zoroLiveTvPlayButton {
+  align-items: center;
+  background: var(--zoro-live-accent-strong) !important;
+  border: 1px solid rgba(114, 231, 155, .72) !important;
+  border-radius: 999px !important;
+  color: var(--zoro-live-accent-ink) !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  font-weight: 800;
+  gap: 7px;
+  height: 44px !important;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  opacity: 1 !important;
+  padding: 0 14px !important;
+  scale: 1 !important;
+  visibility: visible !important;
+  width: auto !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvPlayButton:hover,
+#itemDetailPage.zoro-live-tv-channel-detail .zoroLiveTvPlayButton:hover {
+  background: var(--zoro-live-accent) !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvPlayButton {
+  bottom: 12px !important;
+  left: 12px !important;
+  margin: 0 !important;
+  position: absolute !important;
+  right: auto !important;
+  top: auto !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvPlayButton:focus-visible,
+#liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvPlayButton.show-focus:focus,
+#itemDetailPage.zoro-live-tv-channel-detail .zoroLiveTvPlayButton:focus-visible,
+#itemDetailPage.zoro-live-tv-channel-detail .zoroLiveTvPlayButton.show-focus:focus {
+  background: var(--zoro-live-accent) !important;
+  outline: 3px solid var(--zoro-focus, #f6fbf7) !important;
+  outline-offset: 3px !important;
+}
+
+.zoroLiveTvPlayLabel {
+  display: inline-block;
+  font-size: .82rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .itemProgressBar {
+  background: rgba(255, 255, 255, .16) !important;
+  border-radius: 999px;
+  height: 4px;
+  overflow: hidden;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .itemProgressBarForeground {
+  background: var(--zoro-live-accent-strong) !important;
+}
+
+/* Guide: undo the upstream 4vw widescreen channel rail and preserve the
+ * native horizontally scrolling timeline and fixed channel/program split. */
+#liveTvSuggestedPage.zoro-live-tv-active .channelsContainer,
+#liveTvSuggestedPage.zoro-live-tv-active .guide-channelTimeslotHeader {
+  width: clamp(168px, 15vw, 270px) !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .guide-headerTimeslots {
+  background: var(--zoro-live-surface-raised) !important;
+  border: 1px solid var(--zoro-live-border);
+  border-radius: 16px;
+  box-shadow: none !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .guide-channelHeaderCell,
+#liveTvSuggestedPage.zoro-live-tv-active .channelPrograms {
+  background: rgba(14, 18, 16, .9);
+  border-color: rgba(255, 255, 255, .09) !important;
+  height: 5.2rem;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .programCell {
+  background: rgba(25, 31, 28, .88);
+  border-color: rgba(255, 255, 255, .09) !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .guideChannelImage {
+  background-position: center;
+  left: auto;
+  right: 8%;
+  width: 52%;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .guide-date-tab-button {
+  border-radius: 12px !important;
+  min-height: 44px;
+  padding: 7px 13px !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .guide-date-tab-button.emby-tab-button-active {
+  background: var(--zoro-accent-surface-strong, rgba(37, 184, 95, .32)) !important;
+  color: #fff !important;
+}
+
+#liveTvSuggestedPage.zoro-live-tv-active .guide-channelHeaderCell:focus,
+#liveTvSuggestedPage.zoro-live-tv-active .programCell:focus,
+#liveTvSuggestedPage.zoro-live-tv-active .guide-channelHeaderCell.show-focus:focus,
+#liveTvSuggestedPage.zoro-live-tv-active .programCell.show-focus:focus {
+  background: var(--zoro-live-accent-strong) !important;
+  color: var(--zoro-live-accent-ink) !important;
+  outline: 3px solid var(--zoro-focus, #f6fbf7) !important;
+  outline-offset: -3px !important;
+}
+
+/* Native TV-channel details receive a compact hero; movie/show/episode V3 is
+ * intentionally outside this selector. */
+#itemDetailPage.zoro-live-tv-channel-detail > .itemBackdrop {
+  display: none !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContainer {
+  align-items: center;
+  display: grid !important;
+  gap: clamp(28px, 4vw, 72px);
+  grid-template-areas:
+    "channel-image channel-copy"
+    "channel-content channel-content";
+  grid-template-columns: minmax(260px, min(34vw, 560px)) minmax(0, 1fr);
+  min-height: 0 !important;
+  padding: clamp(28px, 5vh, 64px) max(3.3%, env(safe-area-inset-right)) 52px max(3.3%, env(safe-area-inset-left)) !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContainer > .detailImageContainer {
+  aspect-ratio: 16 / 9;
+  background-color: var(--zoro-live-surface-raised);
+  border: 1px solid var(--zoro-live-border);
+  border-radius: clamp(18px, 1.8vw, 28px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, .28);
+  grid-area: channel-image;
+  height: auto !important;
+  inset: auto !important;
+  margin: 0 !important;
+  max-width: none !important;
+  overflow: hidden;
+  position: relative !important;
+  width: 100% !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailImageContainer > .card {
+  height: 100% !important;
+  inset: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+  position: absolute !important;
+  width: 100% !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailImageContainer > .card .cardBox,
+#itemDetailPage.zoro-live-tv-channel-detail .detailImageContainer > .card .cardScalable,
+#itemDetailPage.zoro-live-tv-channel-detail .detailImageContainer > .card .cardPadder {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailImageContainer > .card .cardPadder {
+  padding: 0 !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailImageContainer > .card .cardImageContainer {
+  background-size: contain !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailRibbon {
+  align-self: center;
+  grid-area: channel-copy;
+  inset: auto !important;
+  margin: 0 !important;
+  max-width: 820px;
+  padding: 0 !important;
+  position: relative !important;
+  width: auto !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .nameContainer {
+  font-size: clamp(2rem, 4vw, 4.7rem);
+  line-height: 1.02;
+  margin-bottom: clamp(18px, 2vw, 30px);
+  text-align: left;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .nameContainer h1 {
+  font-size: clamp(2rem, 4vw, 4.7rem) !important;
+  line-height: 1.02 !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons {
+  align-items: center;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons .detailButton {
+  align-items: center;
+  border: 1px solid var(--zoro-live-border) !important;
+  border-radius: 999px !important;
+  display: inline-flex !important;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons .detailButton.hide,
+#itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons .detailButton[hidden] {
+  display: none !important;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons .zoroLiveTvPlayButton {
+  min-width: 154px;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContent {
+  grid-area: channel-content;
+  margin: 0 !important;
+  max-width: 1200px;
+  padding: 0 !important;
+  width: 100%;
+}
+
+#itemDetailPage.zoro-live-tv-channel-detail .programGuideSection .itemsContainer {
+  box-sizing: border-box !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+@media (min-width: 1600px) {
+  #liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  #liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 899px) {
+  #liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer,
+  #liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 599px) {
+  html.zoro-live-tv-active .skinHeader {
+    height: 112px !important;
+    min-height: 112px !important;
+  }
+
+  html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs {
+    inset: 58px 8px auto !important;
+    margin: 0 !important;
+    max-width: none !important;
+    position: absolute !important;
+    width: auto !important;
+  }
+
+  html.zoro-live-tv-active .skinHeader .headerLeft .pageTitle {
+    display: none !important;
+  }
+
+  html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tabs-slider {
+    justify-content: center;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tab-button {
+    flex: 0 0 auto;
+    font-size: .82rem;
+    padding-inline: 13px !important;
+  }
+
+  #liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer,
+  #liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items {
+    display: flex !important;
+    gap: 14px;
+    margin-inline: 0 !important;
+    overflow-x: auto;
+    overflow-y: visible;
+    overscroll-behavior-inline: contain;
+    padding-inline: 12px !important;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 12px;
+    scrollbar-width: none;
+  }
+
+  #liveTvSuggestedPage.zoro-live-tv-active {
+    padding-top: 132px !important;
+  }
+
+  #liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer > .card,
+  #liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items > .card {
+    flex: 0 0 min(82vw, 360px) !important;
+    scroll-snap-align: start;
+  }
+
+  #liveTvSuggestedPage.zoro-live-tv-active .channelsContainer,
+  #liveTvSuggestedPage.zoro-live-tv-active .guide-channelTimeslotHeader {
+    width: clamp(112px, 31vw, 150px) !important;
+  }
+
+  #liveTvSuggestedPage.zoro-live-tv-active .guideChannelNumber {
+    display: none;
+  }
+
+  #liveTvSuggestedPage.zoro-live-tv-active .guideChannelImage {
+    left: 8%;
+    right: 8%;
+    width: 84%;
+  }
+
+  #itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContainer {
+    display: block !important;
+    padding: 1rem max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left)) !important;
+  }
+
+  #itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContainer > .detailImageContainer {
+    margin-bottom: 24px !important;
+  }
+
+  #itemDetailPage.zoro-live-tv-channel-detail .detailRibbon {
+    display: block !important;
+    max-width: none;
+    width: 100% !important;
+  }
+
+  #itemDetailPage.zoro-live-tv-channel-detail .infoWrapper {
+    width: 100% !important;
+  }
+
+  #itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons {
+    margin-top: 18px;
+    width: 100%;
+  }
+
+  #itemDetailPage.zoro-live-tv-channel-detail .nameContainer {
+    font-size: clamp(1.8rem, 8.5vw, 2.7rem);
+    margin-bottom: 18px;
+  }
+
+  #itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons .zoroLiveTvPlayButton {
+    flex: 1 1 180px;
+  }
+}
+
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer,
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items {
+  gap: clamp(20px, 1.5vw, 58px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .channelsContainer,
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .guide-channelTimeslotHeader {
+  width: clamp(220px, 16vw, 440px) !important;
+}
+
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .guide-channelHeaderCell,
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .channelPrograms {
+  height: clamp(72px, 5vw, 144px);
+}
+
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvPlayButton,
+.layout-tv #itemDetailPage.zoro-live-tv-channel-detail .zoroLiveTvPlayButton,
+.layout-tv #itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons .detailButton {
+  font-size: clamp(1rem, .9vw, 1.8rem);
+  height: clamp(60px, 3.5vw, 96px) !important;
+  min-height: clamp(60px, 3.5vw, 96px);
+  min-width: clamp(60px, 3.5vw, 96px);
+}
+
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .zoroLiveTvPlayButton:focus-visible,
+.layout-tv #itemDetailPage.zoro-live-tv-channel-detail .detailButton:focus-visible,
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .guide-channelHeaderCell:focus,
+.layout-tv #liveTvSuggestedPage.zoro-live-tv-active .programCell:focus {
+  outline-width: clamp(4px, .25vw, 8px) !important;
+  outline-offset: clamp(3px, .18vw, 6px) !important;
+}
+
+@media (min-width: 3000px) {
+  .layout-tv #liveTvSuggestedPage.zoro-live-tv-active #suggestionsTab .itemsContainer,
+  .layout-tv #liveTvSuggestedPage.zoro-live-tv-active #channelsTab #items {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  #liveTvSuggestedPage.zoro-live-tv-active *,
+  #itemDetailPage.zoro-live-tv-channel-detail * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+
+/* Compact channel identity beside the current broadcast, with actions underneath. */
+#itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContainer {
+  grid-template-columns:clamp(180px,22vw,340px) minmax(0,1fr);
+  align-items:start; gap:28px clamp(24px,3vw,48px);
+}
+#itemDetailPage.zoro-live-tv-channel-detail .detailRibbon { display:block !important; height:auto !important; min-height:0 !important; max-width:1100px; }
+#itemDetailPage.zoro-live-tv-channel-detail .infoWrapper { margin:0 !important; padding:0 !important; width:100% !important; }
+#itemDetailPage.zoro-live-tv-channel-detail .nameContainer h1 { font-size:clamp(1.35rem,2vw,2.3rem) !important; line-height:1.2 !important; }
+#itemDetailPage.zoro-live-tv-channel-detail .nameContainer { margin-bottom:16px; }
+#itemDetailPage.zoro-live-tv-channel-detail .mainDetailButtons { margin-top:20px; }
+#itemDetailPage .zoroChannelNow { padding:18px 0 8px; border-top:1px solid #425349; }
+#itemDetailPage .zoroChannelEyebrow { color:#b9dec6; font-size:.82em; font-weight:700; letter-spacing:.06em; margin:0 0 10px; }
+#itemDetailPage .zoroChannelTitle { font-size:clamp(1.65rem,3vw,3rem); line-height:1.15; margin:0 0 12px; overflow-wrap:anywhere; }
+#itemDetailPage .zoroChannelTime { color:#bdc8c1; margin:0; line-height:1.5; }
+#itemDetailPage .zoroChannelNext { margin:18px 0 0; padding-top:14px; border-top:1px solid #425349; color:#bdc8c1; line-height:1.5; }
+#itemDetailPage .zoroChannelNext strong { color:#f5f8f6; }
+#itemDetailPage .zoroChannelProgress { display:block; margin-top:16px; height:4px; background:#33443b; }
+#itemDetailPage .zoroChannelProgress span { display:block; height:100%; background:#72e79b; }
+@media(max-width:699px){
+  #itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContainer { display:block !important; }
+  #itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContainer > .detailImageContainer { width:160px !important; margin-bottom:20px !important; }
+}
+.layout-tv #itemDetailPage .zoroChannelNow { font-size:clamp(18px,1.2vw,32px); }
+
+#itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContent {
+  position:relative !important; inset:auto !important; grid-column:1 / -1; grid-row:2;
+}

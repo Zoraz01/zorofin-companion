@@ -1,0 +1,1151 @@
+/*
+ * Zorofin detail experience v3.
+ *
+ * The global rules establish the green Zorofin state palette. Detail geometry
+ * is scoped to .zoro-detail-v3 and intentionally excludes every
+ * .zoroEpisode* and .zoroSeason* selector so the isolated navigator retains
+ * its verified layout and interaction contract.
+ */
+
+:root {
+  --zoro-accent-strong: #25b85f;
+  --zoro-accent: #42d779;
+  --zoro-accent-soft: #72e79b;
+  --zoro-accent-ink: #041208;
+  --zoro-accent-surface: rgba(37, 184, 95, .18);
+  --zoro-accent-surface-strong: rgba(37, 184, 95, .32);
+  --zoro-accent-border: rgba(114, 231, 155, .58);
+  --zoro-focus: #f6fbf7;
+  --zoro-graphite: #101411;
+  --zoro-graphite-raised: #19211c;
+  --jf-palette-primary-main: rgb(66, 215, 121);
+  --jf-palette-primary-mainChannel: 66 215 121;
+  --background-glow-color: #071b10;
+  --backdrop-bg-color: #07120b;
+  --card-indicate-bg: rgba(37, 184, 95, .5);
+  --card-indicate-liquid-glass: rgba(114, 231, 155, .34);
+  --card-indicate-shadow: rgba(37, 184, 95, .3);
+  --card-indicate-icon-fill: var(--zoro-accent-soft);
+}
+
+::selection {
+  background: rgba(66, 215, 121, .38);
+  color: #fff;
+}
+
+.backgroundContainer:not(.withBackdrop):not(.backgroundContainer-transparent) {
+  background: linear-gradient(0deg, #0d100e 45%, var(--background-glow-color)) !important;
+}
+
+.backgroundContainer.withBackdrop {
+  background: radial-gradient(circle at 18% 20%, rgba(37, 184, 95, .18), transparent 42%),
+    var(--backdrop-bg-color) !important;
+}
+
+.backgroundContainer.withBackdrop .backdropImage {
+  opacity: .64;
+}
+
+.itemProgressBarForeground,
+.mdl-slider-background-lower,
+.playbackProgress > div,
+progress::-moz-progress-bar,
+progress::-webkit-progress-value {
+  background-color: var(--zoro-accent-strong) !important;
+}
+
+.progressring-spiner,
+.mdl-spinner__layer {
+  border-color: var(--zoro-accent) !important;
+}
+
+.button-submit,
+.raised.button-submit {
+  background: var(--zoro-accent-strong) !important;
+  color: var(--zoro-accent-ink) !important;
+}
+
+.button-submit:hover:not(:disabled),
+.raised.button-submit:hover:not(:disabled),
+.button-submit:focus-visible,
+.raised.button-submit:focus-visible {
+  background: var(--zoro-accent) !important;
+}
+
+.emby-tab-button-active,
+.emby-tab-button.emby-button.emby-tab-button-active,
+.navMenuOption-selected {
+  background: var(--zoro-accent-surface-strong) !important;
+  color: var(--zoro-accent-soft) !important;
+}
+
+/* The persistent Home/Favorites navigation is a compact pill control, not a
+ * full-height rectangular tab. Scope this to the skin header so library,
+ * season, episode, and dialog tabs retain their native geometry. */
+.skinHeader .headerTabs.sectionTabs .emby-tab-button {
+  align-items: center;
+  border-radius: 999px !important;
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  margin: 7px 2px !important;
+  min-height: 44px;
+  padding: 0 18px !important;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.skinHeader .headerTabs.sectionTabs .emby-tab-button:hover:not(.emby-tab-button-active) {
+  background: var(--zoro-accent-surface) !important;
+  color: #fff !important;
+}
+
+.skinHeader .headerTabs.sectionTabs .emby-tab-button:focus-visible {
+  outline: 3px solid var(--zoro-focus) !important;
+  outline-offset: 2px !important;
+}
+
+.button-link,
+.inputLabelFocused,
+.selectLabelFocused,
+.textareaLabelFocused,
+.ratingbutton-icon-withrating,
+.playstatebutton-icon-played {
+  color: var(--zoro-accent-soft) !important;
+}
+
+.countIndicator,
+.playedIndicator,
+.fullSyncIndicator,
+.mediaSourceIndicator {
+  background-color: rgba(12, 39, 23, .92) !important;
+  color: var(--zoro-accent-soft) !important;
+}
+
+.emby-checkbox:checked + span + .checkboxOutline {
+  background-color: var(--zoro-accent-strong) !important;
+  border-color: var(--zoro-accent-soft) !important;
+  color: var(--zoro-accent-ink) !important;
+}
+
+.emby-input:focus-visible,
+.emby-textarea:focus-visible,
+.emby-select:focus-visible,
+select:focus-visible {
+  border-color: var(--zoro-accent-border) !important;
+  outline: 3px solid rgba(246, 251, 247, .94) !important;
+  outline-offset: 3px !important;
+}
+
+/* Semantic danger, error, warning, offline, and delete colors remain native. */
+
+#itemDetailPage.zoro-detail-v3 {
+  --zoro-detail-copy: #f5f8f6;
+  --zoro-detail-muted: #bdc8c1;
+  --zoro-detail-surface: rgba(15, 20, 17, .92);
+  --zoro-detail-surface-hover: rgba(24, 32, 27, .97);
+  --zoro-detail-border: rgba(255, 255, 255, .16);
+  --zoro-detail-brand-border: rgba(114, 231, 155, .52);
+  --zoro-detail-copy-width: 780px;
+  color: var(--zoro-detail-copy);
+  /* Jellyfin's live animated page is absolutely positioned. Without page
+   * containment, descendants of otherwise-scrollable rails can still enlarge
+   * the root document width. Clip only the page boundary; every rail keeps its
+   * own overflow-x:auto behavior. */
+  overflow-x: clip;
+}
+
+#itemDetailPage.zoro-detail-v3 .infoWrapper,
+#itemDetailPage.zoro-detail-v3 .detailSectionContent {
+  max-width: var(--zoro-detail-copy-width);
+}
+
+.layout-desktop #itemDetailPage.zoro-detail-v3 .detailRibbon {
+  display: block;
+  height: auto;
+  min-height: 7.4em;
+  padding-bottom: 1.2rem;
+}
+
+/* Anchor the full movie information stack to the poster instead of Jellyfin's
+ * drifting percentage offset. The native poster begins at 3.3vw and occupies
+ * 25vw; a clamped gap keeps the relationship tight from compact desktop to
+ * ultrawide while every downstream row shares the same start line. */
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-movie {
+  --zoro-movie-poster-left: 3.3vw;
+  --zoro-movie-poster-width: 25vw;
+  --zoro-movie-column-gap: clamp(24px, 2vw, 40px);
+  --zoro-movie-copy-start: calc(var(--zoro-movie-poster-left) +
+    var(--zoro-movie-poster-width) + var(--zoro-movie-column-gap));
+}
+
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailRibbon {
+  padding-inline-start: calc(var(--zoro-movie-poster-left) +
+    var(--zoro-movie-column-gap));
+}
+
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailPagePrimaryContent,
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailPageContent {
+  padding-inline-start: var(--zoro-movie-copy-start);
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailContextV3 {
+  align-items: center;
+  color: var(--zoro-detail-muted);
+  display: flex;
+  font-size: .78rem;
+  font-weight: 760;
+  gap: 8px;
+  letter-spacing: .105em;
+  margin: 0 0 .48rem;
+  min-height: 30px;
+  text-transform: uppercase;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailContextV3::before {
+  background: var(--zoro-accent);
+  border-radius: 999px;
+  box-shadow: 0 0 18px rgba(66, 215, 121, .38);
+  content: "";
+  flex: 0 0 auto;
+  height: 7px;
+  width: 7px;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailContextLinkV3 {
+  align-items: center;
+  border-radius: 8px;
+  color: var(--zoro-accent-soft);
+  display: inline-flex;
+  margin: -7px;
+  min-height: 44px;
+  padding: 0 7px;
+  text-decoration: none;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailContextLinkV3:hover {
+  background: rgba(66, 215, 121, .12);
+  color: #fff;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailContextSeparatorV3 {
+  color: var(--zoro-accent-strong);
+  font-size: 1.2em;
+}
+
+#itemDetailPage.zoro-detail-v3 .nameContainer .itemName,
+#itemDetailPage.zoro-detail-v3 .nameContainer h1 {
+  color: var(--zoro-detail-copy);
+  font-size: clamp(2.25rem, 4.2vw, 4.6rem);
+  font-weight: 780;
+  letter-spacing: -.04em;
+  line-height: 1;
+  margin-bottom: .72rem;
+  max-width: 17ch;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+#itemDetailPage.zoro-detail-v3.zoro-detail-episode .nameContainer .itemName,
+#itemDetailPage.zoro-detail-v3.zoro-detail-episode .nameContainer h1 {
+  font-size: clamp(2rem, 3.8vw, 4rem);
+  max-width: 20ch;
+}
+
+#itemDetailPage.zoro-detail-v3 .itemMiscInfo {
+  color: var(--zoro-detail-muted);
+  line-height: 1.5;
+}
+
+#itemDetailPage.zoro-detail-v3 .itemMiscInfo-primary {
+  color: var(--zoro-detail-copy);
+  font-weight: 650;
+}
+
+#itemDetailPage.zoro-detail-v3 .tagline {
+  color: var(--zoro-detail-copy);
+  font-size: clamp(1.08rem, 1.55vw, 1.35rem);
+  font-weight: 640;
+  line-height: 1.4;
+  margin-bottom: .7rem;
+}
+
+#itemDetailPage.zoro-detail-v3 .overview {
+  color: #d8e0da;
+  font-size: clamp(1rem, 1.15vw, 1.1rem);
+  line-height: 1.65;
+  max-width: 72ch;
+}
+
+#itemDetailPage.zoro-detail-v3 .detailImageContainer .cardImageContainer {
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 16px !important;
+  box-shadow: 0 24px 58px rgba(0, 0, 0, .38) !important;
+  overflow: hidden;
+}
+
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+  .detailPagePrimaryContainer > .detailImageContainer .card {
+  max-width: 620px;
+  width: min(34vw, 620px);
+}
+
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailRibbon {
+  padding-inline-start: calc(41vw - min(34vw, 620px));
+}
+
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPagePrimaryContent,
+.layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPageContent {
+  padding-inline-start: 41vw;
+}
+
+/* Preserve the reviewed compact-desktop composition through 1440px. On true
+ * widescreens, let the 16:9 episode still become a cinematic anchor instead
+ * of freezing at 620px while the title column keeps drifting away from it. */
+@media (min-width: 1536px) {
+  .layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .detailPagePrimaryContainer > .detailImageContainer .card {
+    max-width: 900px;
+    width: min(40vw, 900px);
+  }
+
+  .layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailRibbon {
+    padding-inline-start: 7vw;
+  }
+
+  .layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPagePrimaryContent,
+  .layout-desktop #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPageContent {
+    padding-inline-start: calc(min(40vw, 900px) + 7vw);
+  }
+}
+
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 1.1rem 0 .55rem;
+}
+
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton {
+  align-items: center;
+  background: rgba(16, 21, 18, .84) !important;
+  border: 1px solid var(--zoro-detail-border);
+  border-radius: 999px !important;
+  box-sizing: border-box;
+  color: var(--zoro-detail-copy) !important;
+  display: inline-flex;
+  flex-direction: row;
+  justify-content: center;
+  min-height: 50px;
+  min-width: 50px;
+  padding: 0 15px !important;
+  position: relative;
+  transition: background-color 180ms ease-out, border-color 180ms ease-out,
+    box-shadow 180ms ease-out, color 180ms ease-out !important;
+}
+
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton-content {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: 9px;
+  justify-content: center;
+}
+
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton-icon {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailButtonLabelV3 {
+  font-size: .98rem;
+  font-weight: 760;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay:not(.hide),
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay.hide + .btnReplay:not(.hide) {
+  background: var(--zoro-accent-strong) !important;
+  border-color: var(--zoro-accent-soft) !important;
+  box-shadow: 0 10px 26px rgba(37, 184, 95, .26) !important;
+  color: var(--zoro-accent-ink) !important;
+  min-width: 138px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay:not(.hide):hover,
+  #itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay.hide + .btnReplay:not(.hide):hover {
+    background: var(--zoro-accent) !important;
+    box-shadow: 0 12px 30px rgba(37, 184, 95, .34) !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton:not(.btnPlay):hover,
+  #itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay:not(.hide) + .btnReplay:hover {
+    background: var(--zoro-detail-surface-hover) !important;
+    border-color: var(--zoro-detail-brand-border) !important;
+  }
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailIconButtonV3::after {
+  background: rgba(15, 20, 17, .98);
+  border: 1px solid var(--zoro-detail-brand-border);
+  border-radius: 8px;
+  bottom: calc(100% + 10px);
+  color: #fff;
+  content: attr(data-zoro-v3-tooltip);
+  font-size: .78rem;
+  font-weight: 680;
+  left: 50%;
+  max-width: min(230px, 72vw);
+  opacity: 0;
+  padding: 7px 10px;
+  pointer-events: none;
+  position: absolute;
+  text-transform: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 160ms ease-out, transform 160ms ease-out;
+  white-space: nowrap;
+  z-index: 30;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #itemDetailPage.zoro-detail-v3 .zoroDetailIconButtonV3:hover::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroDetailIconButtonV3:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton:focus-visible,
+#itemDetailPage.zoro-detail-v3 .zoroDetailContextLinkV3:focus-visible,
+#itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3:focus-visible,
+#itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3.focused {
+  outline: 4px solid var(--zoro-focus) !important;
+  outline-offset: 4px !important;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressV3 {
+  margin: .95rem 0 .15rem;
+  max-width: min(430px, 100%);
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressCopyV3 {
+  align-items: baseline;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressCopyV3 strong {
+  color: var(--zoro-detail-copy);
+  font-size: .82rem;
+  font-weight: 760;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressCopyV3 span {
+  color: var(--zoro-detail-muted);
+  font-size: .76rem;
+  font-weight: 650;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressTrackV3 {
+  background: rgba(255, 255, 255, .2);
+  border-radius: 999px;
+  height: 7px;
+  overflow: hidden;
+  width: 100%;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressFillV3 {
+  background: var(--zoro-accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressV3-complete .zoroPlaybackProgressFillV3 {
+  background: var(--zoro-accent-soft);
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedRailV3 {
+  contain: layout style;
+  margin-top: clamp(1.9rem, 4vw, 3.6rem);
+  max-width: 100%;
+  overflow: hidden;
+  padding-bottom: clamp(1.5rem, 3vw, 3rem);
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedHeaderV3 {
+  align-items: end;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedHeadingV3 {
+  font-size: clamp(1.4rem, 2.1vw, 1.9rem);
+  font-weight: 730;
+  letter-spacing: -.025em;
+  margin-bottom: .18rem;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedContextV3,
+#itemDetailPage.zoro-detail-v3 .zoroRelatedCountV3 {
+  color: var(--zoro-detail-muted);
+  font-size: .9rem;
+  margin: 0;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedScrollerV3 {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 1rem 0 .9rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedItemsV3 {
+  display: flex;
+  gap: clamp(13px, 1.35vw, 20px);
+  padding-inline: 3.3%;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3 {
+  background: var(--zoro-detail-surface);
+  border: 1px solid var(--zoro-detail-border);
+  border-radius: 14px;
+  box-sizing: border-box;
+  color: var(--zoro-detail-copy);
+  cursor: pointer;
+  display: block;
+  flex: 0 0 clamp(300px, 29vw, 420px);
+  max-width: 420px;
+  min-width: 290px;
+  overflow: hidden;
+  scroll-snap-align: start;
+  text-decoration: none;
+  transition: background-color 180ms ease-out, border-color 180ms ease-out,
+    box-shadow 180ms ease-out !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3:hover {
+    background: var(--zoro-detail-surface-hover);
+    border-color: var(--zoro-detail-brand-border);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, .32) !important;
+  }
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedVisualV3 {
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, rgba(37, 184, 95, .16), rgba(4, 12, 7, .92));
+  display: block;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedImageV3 {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedImageV3[data-state="error"] {
+  opacity: 0;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedBodyV3 {
+  display: block;
+  padding: 13px 14px 15px;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedEyebrowV3 {
+  color: var(--zoro-accent-soft);
+  display: block;
+  font-size: .71rem;
+  font-weight: 760;
+  letter-spacing: .06em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+#itemDetailPage.zoro-detail-v3 .zoroRelatedTitleV3 {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.32;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#itemDetailPage.zoro-detail-v3 #castCollapsible,
+#itemDetailPage.zoro-detail-v3 #guestCastCollapsible {
+  contain: layout style;
+  margin-top: clamp(1.9rem, 4vw, 3.6rem);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+#itemDetailPage.zoro-detail-v3 #castCollapsible .emby-scroller,
+#itemDetailPage.zoro-detail-v3 #guestCastCollapsible .emby-scroller {
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#itemDetailPage.zoro-detail-v3 #castCollapsible .sectionTitle,
+#itemDetailPage.zoro-detail-v3 #guestCastCollapsible .sectionTitle {
+  color: var(--zoro-detail-copy);
+  font-size: clamp(1.4rem, 2.1vw, 1.9rem);
+  font-weight: 730;
+  letter-spacing: -.025em;
+}
+
+#itemDetailPage.zoro-detail-v3 #castCollapsible .card,
+#itemDetailPage.zoro-detail-v3 #guestCastCollapsible .card {
+  max-width: 190px;
+  min-width: 145px;
+  width: clamp(145px, 13vw, 190px) !important;
+}
+
+#itemDetailPage.zoro-detail-v3 #castCollapsible .cardImageContainer,
+#itemDetailPage.zoro-detail-v3 #guestCastCollapsible .cardImageContainer {
+  border: 1px solid var(--zoro-detail-border);
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+#itemDetailPage.zoro-detail-v3 #castCollapsible .cardText,
+#itemDetailPage.zoro-detail-v3 #guestCastCollapsible .cardText {
+  color: var(--zoro-detail-copy);
+  font-weight: 680;
+}
+
+#itemDetailPage.zoro-detail-v3 #castCollapsible .cardText-secondary,
+#itemDetailPage.zoro-detail-v3 #guestCastCollapsible .cardText-secondary {
+  color: var(--zoro-detail-muted);
+  font-size: .82rem;
+  font-weight: 500;
+}
+
+#itemDetailPage.zoro-detail-v3.zoro-related-v3-ready #similarCollapsible {
+  display: none !important;
+}
+
+@supports not (aspect-ratio: 16 / 9) {
+  #itemDetailPage.zoro-detail-v3 .zoroRelatedVisualV3 {
+    height: 0;
+    padding-top: 56.25%;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .zoroRelatedImageV3 {
+    inset: 0;
+    position: absolute;
+  }
+}
+
+@media (max-width: 599px) {
+  /* Better Jellyfin UI reserves both 7rem of page padding and another 3rem
+   * above the native mobile backdrop. Retain that composition for series;
+   * movies and episodes already have their own artwork anchor below. */
+  .layout-mobile #itemDetailPage.zoro-detail-v3 {
+    padding-top: 5.125rem !important;
+  }
+
+  .layout-mobile #itemDetailPage.zoro-detail-v3 > .itemBackdrop {
+    margin-top: 0 !important;
+  }
+
+  /* A phone movie or episode already has a poster/still anchor. The separate
+   * backdrop therefore creates an empty 30vh spacer between the 48px toolbar
+   * and useful content. Collapse only that redundant artwork and use a
+   * width-driven rule so narrow desktop browsers match physical phones. */
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode {
+    padding-top: calc(48px + env(safe-area-inset-top)) !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie > .itemBackdrop,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode > .itemBackdrop {
+    height: 0 !important;
+    margin-top: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailPageWrapperContainer,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPageWrapperContainer {
+    margin-top: 0 !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailRibbon,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailRibbon {
+    display: block;
+    height: auto !important;
+    margin-top: 0 !important;
+    min-height: 0 !important;
+    padding: .5rem 4% 1rem !important;
+    position: relative;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailPagePrimaryContent,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailPageContent,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPagePrimaryContent,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPageContent {
+    padding-left: 4% !important;
+    padding-right: 4% !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie .detailRibbon {
+    padding-top: 0 !important;
+  }
+
+  /* The upstream compact movie composition fixes the native poster at 30vw
+   * (112px on a 375px phone). Keep the familiar poster-and-title relationship,
+   * but promote the poster to a deliberate visual anchor and reserve its real
+   * height so the action row can never overlap it. */
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie {
+    --zoro-mobile-movie-poster: clamp(144px, 42vw, 176px);
+    --zoro-mobile-movie-poster-overlap: 0px;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie .infoWrapper {
+    box-sizing: border-box;
+    max-width: none;
+    min-height: calc(var(--zoro-mobile-movie-poster) * 1.5 -
+      var(--zoro-mobile-movie-poster-overlap));
+    padding-left: calc(var(--zoro-mobile-movie-poster) + 16px) !important;
+    padding-right: 0 !important;
+    position: relative;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie
+    .infoWrapper > .detailImageContainer .card,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie
+    .detailPagePrimaryContainer > .detailImageContainer .card {
+    bottom: auto !important;
+    left: 0 !important;
+    max-width: none !important;
+    position: absolute !important;
+    top: calc(-1 * var(--zoro-mobile-movie-poster-overlap)) !important;
+    width: var(--zoro-mobile-movie-poster) !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-movie
+    .detailPagePrimaryContainer > .detailImageContainer .card {
+    left: 4% !important;
+    top: 0 !important;
+  }
+
+  /* Jellyfin's native mobile episode composition absolutely positions a
+   * 30vw still beside the title. That leaves the landscape image tiny and
+   * visually pinned to the left edge. Keep the native image and click target,
+   * but return it to document flow as a centered 16:9 hero above the episode
+   * title. Series and movie compositions remain untouched. */
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .infoWrapper {
+    box-sizing: border-box;
+    max-width: none;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .infoWrapper > .detailImageContainer {
+    aspect-ratio: 16 / 9;
+    height: auto !important;
+    margin: 0 auto clamp(18px, 5vw, 24px) !important;
+    overflow: hidden;
+    position: relative !important;
+    width: 100% !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .detailPagePrimaryContainer > .detailImageContainer {
+    aspect-ratio: 16 / 9;
+    height: auto !important;
+    margin: 0 4% clamp(18px, 5vw, 24px) !important;
+    overflow: hidden;
+    position: relative !important;
+    width: 92% !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .infoWrapper > .detailImageContainer .card,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .detailPagePrimaryContainer > .detailImageContainer .card {
+    height: 100% !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    position: absolute !important;
+    width: 100% !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .infoWrapper > .detailImageContainer .cardBox,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .infoWrapper > .detailImageContainer .cardScalable,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .infoWrapper > .detailImageContainer .cardPadder,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .detailPagePrimaryContainer > .detailImageContainer .cardBox,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .detailPagePrimaryContainer > .detailImageContainer .cardScalable,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .detailPagePrimaryContainer > .detailImageContainer .cardPadder {
+    height: 100% !important;
+    width: 100% !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .infoWrapper > .detailImageContainer .cardPadder,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+    .detailPagePrimaryContainer > .detailImageContainer .cardPadder {
+    padding: 0 !important;
+  }
+
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .nameContainer {
+    width: 100% !important;
+  }
+
+  .layout-mobile #itemDetailPage.zoro-detail-v3 .mainDetailButtons {
+    box-sizing: border-box;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100%;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .zoroDetailContextV3 {
+    font-size: .72rem;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .nameContainer .itemName,
+  #itemDetailPage.zoro-detail-v3 .nameContainer h1,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .nameContainer .itemName,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-episode .nameContainer h1 {
+    font-size: clamp(1.8rem, 7.8vw, 2.35rem);
+    line-height: 1.04;
+    max-width: none;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .mainDetailButtons {
+    gap: 8px;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressV3 {
+    max-width: none;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay:not(.hide),
+  #itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay.hide + .btnReplay:not(.hide) {
+    flex: 1 1 100%;
+    min-height: 52px;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .zoroRelatedHeaderV3 {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .zoroRelatedItemsV3 {
+    gap: 12px;
+    padding-inline: 4%;
+  }
+
+  #itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3 {
+    flex-basis: min(84vw, 350px);
+    max-width: 350px;
+    min-width: 0;
+  }
+
+  #itemDetailPage.zoro-detail-v3 #castCollapsible .card,
+  #itemDetailPage.zoro-detail-v3 #guestCastCollapsible .card {
+    max-width: 165px;
+    min-width: 132px;
+    width: min(42vw, 165px) !important;
+  }
+}
+
+/* Ten-foot layouts commonly expose either a 1280/1920 CSS viewport or the
+ * panel's literal 3840px width. Jellyfin already scales poster geometry with
+ * vw, but its copy and controls stop growing at desktop pixel caps. Use a
+ * 1920px baseline and scale only V3's detail presentation up to 2x; native
+ * routes, focus movement, playback, and the protected episode navigator keep
+ * their existing owners. */
+.layout-tv #itemDetailPage.zoro-detail-v3 {
+  --zoro-detail-copy-width: clamp(780px, 40.625vw, 1560px);
+  --zoro-tv-detail-base: clamp(16px, .833333vw, 32px);
+  font-size: var(--zoro-tv-detail-base);
+}
+
+/* Own both TV episode columns explicitly. Native cards float with a negative
+ * 25vw margin; widening one to 40vw makes the ribbon depend on float wrapping
+ * and can put Resume/progress under the still on WebOS. Keep the 5vw inset,
+ * 40vw artwork and 3vw gap without depending on that native float offset. */
+.layout-tv #itemDetailPage.zoro-detail-v3.zoro-detail-episode
+  .detailPagePrimaryContainer > .detailImageContainer .card {
+  float: none;
+  left: 5vw;
+  margin: 0;
+  max-width: none;
+  position: absolute;
+  top: 0;
+  width: 40vw;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailRibbon {
+  box-sizing: border-box;
+  display: block;
+  margin: 0;
+  min-height: 22.5vw;
+  padding-inline-start: 48vw;
+  position: relative;
+  width: 100%;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3.zoro-detail-episode .detailPagePrimaryContent {
+  padding-inline-start: 48vw;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroDetailContextV3 {
+  font-size: clamp(.95rem, 1vw, 2rem);
+  gap: clamp(8px, .5vw, 16px);
+  min-height: clamp(30px, 1.875vw, 60px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroDetailContextV3::before {
+  height: clamp(7px, .45vw, 14px);
+  width: clamp(7px, .45vw, 14px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .nameContainer .itemName,
+.layout-tv #itemDetailPage.zoro-detail-v3 .nameContainer h1 {
+  font-size: clamp(3.35rem, 3.833vw, 9.2rem);
+  margin-bottom: clamp(.72rem, .75vw, 1.44rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3.zoro-detail-episode .nameContainer .itemName,
+.layout-tv #itemDetailPage.zoro-detail-v3.zoro-detail-episode .nameContainer h1 {
+  font-size: clamp(3rem, 3.333vw, 8rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .itemMiscInfo {
+  font-size: clamp(1rem, 1.05vw, 2.1rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .tagline {
+  font-size: clamp(1.2rem, 1.35vw, 2.7rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .overview {
+  font-size: clamp(1.05rem, 1.1vw, 2.2rem);
+  line-height: 1.65;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .mainDetailButtons {
+  gap: clamp(10px, .7vw, 28px);
+  margin-bottom: clamp(.55rem, .55vw, 1.1rem);
+  margin-top: clamp(1.1rem, 1.1vw, 2.2rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton {
+  min-height: clamp(60px, 4vw, 120px);
+  min-width: clamp(60px, 4vw, 120px);
+  padding-left: clamp(15px, 1.1vw, 34px) !important;
+  padding-right: clamp(15px, 1.1vw, 34px) !important;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton-content {
+  gap: clamp(9px, .6vw, 18px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton-icon {
+  font-size: clamp(1.5rem, 1.6vw, 3.2rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroDetailButtonLabelV3 {
+  font-size: clamp(.98rem, 1vw, 2rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay:not(.hide),
+.layout-tv #itemDetailPage.zoro-detail-v3
+  .mainDetailButtons .btnPlay.hide + .btnReplay:not(.hide) {
+  min-width: clamp(150px, 8.5vw, 320px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressV3 {
+  margin-bottom: clamp(.15rem, .2vw, .3rem);
+  margin-top: clamp(.95rem, .95vw, 1.9rem);
+  max-width: clamp(520px, 27.083vw, 1040px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressCopyV3 {
+  margin-bottom: clamp(7px, .45vw, 14px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressCopyV3 strong {
+  font-size: clamp(.82rem, .82vw, 1.64rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressCopyV3 span {
+  font-size: clamp(.76rem, .76vw, 1.52rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroPlaybackProgressTrackV3 {
+  height: clamp(9px, .55vw, 18px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroDetailContextLinkV3 {
+  min-height: clamp(52px, 2.708vw, 104px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroDetailIconButtonV3::after {
+  border-radius: clamp(8px, .5vw, 16px);
+  bottom: calc(100% + clamp(10px, .65vw, 20px));
+  font-size: clamp(.78rem, .78vw, 1.56rem);
+  padding: clamp(7px, .45vw, 14px) clamp(10px, .65vw, 20px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .mainDetailButtons .detailButton:focus-visible,
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroDetailContextLinkV3:focus-visible,
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3:focus-visible,
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3.focused {
+  outline-width: clamp(4px, .25vw, 8px) !important;
+  outline-offset: clamp(4px, .25vw, 8px) !important;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedHeadingV3,
+.layout-tv #itemDetailPage.zoro-detail-v3 #castCollapsible .sectionTitle,
+.layout-tv #itemDetailPage.zoro-detail-v3 #guestCastCollapsible .sectionTitle {
+  font-size: clamp(1.6rem, 1.7vw, 3.4rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedContextV3,
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedCountV3 {
+  font-size: clamp(.9rem, .9vw, 1.8rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3 {
+  flex-basis: clamp(380px, 26vw, 1000px);
+  max-width: 1000px;
+  min-width: 350px;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedBodyV3 {
+  padding: clamp(13px, .85vw, 26px) clamp(14px, .9vw, 28px)
+    clamp(15px, 1vw, 30px);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedEyebrowV3 {
+  font-size: clamp(.71rem, .71vw, 1.42rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroRelatedTitleV3 {
+  font-size: clamp(1rem, 1vw, 2rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 #castCollapsible .card,
+.layout-tv #itemDetailPage.zoro-detail-v3 #guestCastCollapsible .card {
+  max-width: 460px;
+  min-width: 190px;
+  width: clamp(190px, 12vw, 460px) !important;
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 #castCollapsible .cardText,
+.layout-tv #itemDetailPage.zoro-detail-v3 #guestCastCollapsible .cardText {
+  font-size: clamp(1rem, 1vw, 2rem);
+}
+
+.layout-tv #itemDetailPage.zoro-detail-v3 #castCollapsible .cardText-secondary,
+.layout-tv #itemDetailPage.zoro-detail-v3 #guestCastCollapsible .cardText-secondary {
+  font-size: clamp(.82rem, .82vw, 1.64rem);
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  .skinHeader .headerTabs.sectionTabs .emby-tab-button,
+  #itemDetailPage.zoro-detail-v3 .detailButton,
+  #itemDetailPage.zoro-detail-v3 .zoroDetailContextLinkV3,
+  #itemDetailPage.zoro-detail-v3 .zoroRelatedCardV3,
+  #itemDetailPage.zoro-detail-v3 .zoroDetailIconButtonV3::after {
+    transition: none !important;
+  }
+}
+
+/* Show and season titles share the poster edge; never a viewport percentage offset. */
+#itemDetailPage.zoro-detail-v3.zoro-detail-series > .detailLogo,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season > .detailLogo { display:none !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPageWrapperContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPageWrapperContainer { margin-top:0 !important; padding-top:0 !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series > .itemBackdrop,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season > .itemBackdrop { height:clamp(120px,20vh,240px) !important; min-height:0 !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContainer { display:grid !important; grid-template-columns:clamp(180px,22vw,360px) minmax(0,1fr); grid-template-areas:"poster title" "poster description"; grid-template-rows:auto 1fr; align-items:start; column-gap:clamp(24px,3vw,48px); row-gap:24px; padding:clamp(88px,10vh,140px) 3.3% 28px !important; min-height:0 !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContainer > .detailImageContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContainer > .detailImageContainer { grid-area:poster; position:relative !important; inset:auto !important; margin:0 !important; width:100% !important; max-width:none !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContainer > .detailImageContainer > .card,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContainer > .detailImageContainer > .card { position:relative !important; inset:auto !important; width:100% !important; max-width:none !important; margin:0 !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailRibbon,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailRibbon { grid-area:title; position:relative !important; inset:auto !important; display:block !important; width:100% !important; max-width:none !important; padding:0 !important; margin:0 !important; min-height:0 !important; height:auto !important; box-sizing:border-box; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .infoWrapper,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .infoWrapper { margin:0 !important; padding:0 !important; width:100% !important; max-width:none !important; text-align:left !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .nameContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .nameContainer { margin:0 !important; padding:0 !important; text-align:left !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .mainDetailButtons,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .mainDetailButtons { justify-content:flex-start !important; margin-left:0 !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContent,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContent { grid-area:description; position:relative !important; width:100% !important; max-width:900px !important; padding:0 !important; margin:0 !important; box-sizing:border-box; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPageContent,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPageContent { padding-inline:3.3% !important; }
+@media (max-width: 699px) {
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContainer { display:block !important; padding:88px 4% 24px !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContainer > .detailImageContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContainer > .detailImageContainer { display:none !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .infoWrapper > .detailImageContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .infoWrapper > .detailImageContainer { display:block !important; position:relative !important; float:left; width:110px !important; margin:0 18px 14px 0 !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .infoWrapper > .detailImageContainer .card,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .infoWrapper > .detailImageContainer .card { position:relative !important; inset:auto !important; width:110px !important; margin:0 !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .infoWrapper,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .infoWrapper { min-height:172px; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .nameContainer h1,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .nameContainer h1 { font-size:clamp(1.7rem,6vw,2.4rem) !important; max-width:none; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .mainDetailButtons,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .mainDetailButtons { clear:both; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContent,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContent { margin-top:24px !important; }
+}
+@media (min-width: 2500px) {
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .detailPagePrimaryContainer,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .detailPagePrimaryContainer { grid-template-columns:480px minmax(0,1fr); column-gap:56px; }
+}
+
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .nameContainer h1,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .nameContainer h1 { text-align:left !important; }
+#itemDetailPage.zoro-detail-v3.zoro-detail-series .itemMiscInfo,
+#itemDetailPage.zoro-detail-v3.zoro-detail-season .itemMiscInfo { justify-content:flex-start !important; text-align:left !important; }
+@media (max-width:699px){
+  #itemDetailPage.zoro-detail-v3.zoro-detail-series .infoWrapper,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-season .infoWrapper { display:grid !important; grid-template-columns:110px minmax(0,1fr); gap:0 18px; align-content:start; }
+  #itemDetailPage.zoro-detail-v3.zoro-detail-series .infoWrapper > .detailImageContainer,
+  #itemDetailPage.zoro-detail-v3.zoro-detail-season .infoWrapper > .detailImageContainer { grid-column:1;grid-row:1 / 6;float:none;margin:0 !important; }
+  #itemDetailPage.zoro-detail-v3.zoro-detail-series .infoWrapper > :not(.detailImageContainer),
+  #itemDetailPage.zoro-detail-v3.zoro-detail-season .infoWrapper > :not(.detailImageContainer) { grid-column:2;min-width:0; }
+}
