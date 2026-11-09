@@ -588,3 +588,258 @@ html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tab-button.sh
 #itemDetailPage.zoro-live-tv-channel-detail .detailPagePrimaryContent {
   position:relative !important; inset:auto !important; grid-column:1 / -1; grid-row:2;
 }
+
+/* ---- Jellyfin 12 Live TV page (#liveTvPage) ------------------------------
+ * Same look as Home's rows and the apps' Live TV: every card is the same 16:9
+ * tile; channel logos sit whole on a dark tile instead of being stretched and
+ * cropped; text is left aligned (title, channel, time) with a thin progress
+ * line for what is on now. zorofin-live-tv.js adds the art layer and classes. */
+#liveTvPage.zoro-live-tv-active {
+  --zoro-ltv-card: var(--zoro-home-art, clamp(240px, 21vw, 360px));
+  --zoro-ltv-gutter: var(--zoro-home-gutter, 3.3%);
+}
+
+#liveTvPage.zoro-live-tv-active .verticalSection {
+  margin-bottom: clamp(18px, 2.4vw, 36px);
+}
+
+#liveTvPage.zoro-live-tv-active .sectionTitleContainer {
+  margin-bottom: 4px;
+}
+
+#liveTvPage.zoro-live-tv-active .sectionTitle {
+  color: #f5f7f5;
+  font-size: 24px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0;
+  line-height: 1.25;
+  margin: 0;
+}
+
+#liveTvPage.zoro-live-tv-active .sectionTitle::before {
+  background: var(--zoro-ui-accent-strong, #25b85f);
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: .82em;
+  margin-right: .48em;
+  vertical-align: -.04em;
+  width: 3px;
+}
+
+#liveTvPage.zoro-live-tv-active .emby-scroller .itemsContainer > .card.zoroLtvCard {
+  width: var(--zoro-ltv-card) !important;
+  max-width: none !important;
+  flex: 0 0 auto;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardBox {
+  display: flex;
+  flex-direction: column;
+  margin: 0 var(--zoro-home-gap, 20px) 0 0 !important;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardScalable {
+  background: #151c18;
+  border: 1px solid var(--zoro-ui-border, rgba(255, 255, 255, .18));
+  border-radius: 12px;
+  box-shadow: none;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardPadder {
+  padding-bottom: 56.25% !important;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardContent {
+  background: #151c18 !important;
+  border-radius: inherit;
+}
+
+/* Jellyfin's own picture, TV icon and coloured placeholder sit under the art layer. */
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardImageContainer > :not(.zoroLtvArt):not(.zls-badge):not(.indicators),
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardImageIcon,
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .itemLinearProgress {
+  opacity: 0 !important;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardImageContainer {
+  background: #151c18 !important;
+}
+
+#liveTvPage .zoroLtvArt {
+  align-items: center;
+  background: linear-gradient(135deg, #1b2520, #0d110f);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+#liveTvPage .zoroLtvArt img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity .18s ease;
+  width: 100%;
+}
+
+#liveTvPage .zoroLtvArt[data-mode] img {
+  opacity: 1;
+}
+
+#liveTvPage .zoroLtvArt[data-mode="logo"] img {
+  box-sizing: border-box;
+  padding: 14% 16%;
+}
+
+#liveTvPage .zoroLtvArt[data-mode="photo"] img {
+  object-fit: cover;
+}
+
+#liveTvPage .zoroLtvInitials {
+  color: rgba(232, 239, 235, .62);
+  font-size: clamp(22px, 2.2vw, 34px);
+  font-weight: 750;
+  letter-spacing: .06em;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .indicators,
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .zls-badge,
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardOverlayContainer {
+  z-index: 3;
+}
+
+/* LIVE pill, as on Home's Sports & live events cards. */
+#liveTvPage.zoro-live-tv-active .zoroLtvCard.zoroLtvAiring .cardScalable::after {
+  align-items: center;
+  background: rgba(0, 0, 0, .75);
+  border-radius: 999px;
+  color: #fff;
+  content: "LIVE";
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  left: 10px;
+  letter-spacing: .04em;
+  padding: 5px 9px 5px 21px;
+  pointer-events: none;
+  position: absolute;
+  top: 10px;
+  z-index: 2;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard.zoroLtvAiring .cardScalable::before {
+  background: #ff453a;
+  border-radius: 50%;
+  content: "";
+  height: 7px;
+  left: 20px;
+  pointer-events: none;
+  position: absolute;
+  top: 19px;
+  width: 7px;
+  z-index: 3;
+}
+
+/* Quiet hover controls: a small play button and the menu, no big disc over the logo. */
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardOverlayContainer {
+  background: linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, .55)) !important;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardOverlayFab-primary {
+  background: var(--zoro-ui-accent-strong, #25b85f) !important;
+  color: var(--zoro-accent-ink, #041208) !important;
+  height: 44px !important;
+  width: 44px !important;
+}
+
+/* Text: title, channel, time; left aligned like Home. */
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardText {
+  color: #bbc5bd;
+  font-size: var(--zoro-home-meta, 15px);
+  line-height: 1.3;
+  order: 3;
+  padding: 2px 0 0 !important;
+  text-align: left !important;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvCard .cardText-first {
+  color: #f5f7f5;
+  font-size: var(--zoro-home-title, 17px);
+  font-weight: 600;
+  margin-top: 10px;
+  order: 1;
+  padding-top: 0 !important;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvChannelLine {
+  color: #bbc5bd;
+  font-size: var(--zoro-home-meta, 15px);
+  line-height: 1.3;
+  order: 2;
+  overflow: hidden;
+  padding-top: 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvProgress {
+  background: var(--zoro-ui-border, rgba(255, 255, 255, .18));
+  border-radius: 999px;
+  height: 3px;
+  margin-top: 8px;
+  order: 4;
+  overflow: hidden;
+}
+
+#liveTvPage.zoro-live-tv-active .zoroLtvProgress span {
+  background: var(--zoro-ui-accent-strong, #25b85f);
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+}
+
+/* Channels tab: the same tiles in a grid. */
+#liveTvPage.zoro-live-tv-active[data-zoro-ltv-tab="channels"] .itemsContainer {
+  display: grid !important;
+  gap: 28px var(--zoro-home-gap, 20px);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  padding-inline: var(--zoro-ltv-gutter) !important;
+}
+
+#liveTvPage.zoro-live-tv-active[data-zoro-ltv-tab="channels"] .itemsContainer > .card.zoroLtvCard {
+  margin: 0 !important;
+  width: auto !important;
+}
+
+#liveTvPage.zoro-live-tv-active[data-zoro-ltv-tab="channels"] .zoroLtvCard .cardBox {
+  margin: 0 !important;
+}
+
+/* Guide: channel logos whole in the channel column. */
+#liveTvPage.zoro-live-tv-active .guideChannelImage {
+  background-position: center !important;
+  background-size: contain !important;
+}
+
+/* Guide: Live TV streams strip sits inside the guide, above the dates. */
+#liveTvPage.zoro-live-tv-active .tvguide > .zls-strip {
+  flex: 0 0 auto;
+  margin: 0 var(--zoro-ltv-gutter) 12px;
+}
+
+@media (max-width: 599px) {
+  #liveTvPage.zoro-live-tv-active {
+    --zoro-ltv-card: var(--zoro-home-art, 240px);
+  }
+
+  #liveTvPage.zoro-live-tv-active .sectionTitle {
+    font-size: 20px !important;
+  }
+}

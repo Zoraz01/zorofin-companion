@@ -106,6 +106,28 @@ tools/publish-image.sh --local  # docker build, tagged zorofin-companion:dev
 tools/smoke-test-image.sh
 ```
 
+### Memory
+
+The companion idles at about 50 MB. Its biggest moment is liveTvSource
+reading a large provider guide, so that path streams: the download is
+scanned in pieces, only the programmes for kept channels are held (as their
+own copies, not views into the download), the finished guide is written to
+disk in batches, and Jellyfin's reads of `guide.xml` stream from disk. The
+image also sets `NODE_OPTIONS=--max-semi-space-size=2`, which trades ~15%
+more CPU during a guide refresh for a smaller young generation; set
+`NODE_OPTIONS` yourself to change it.
+
+To measure on your machine (a synthetic ~200 MB guide, nothing leaves it):
+
+```sh
+node --expose-gc tools/memory-bench.js                # channels hoursPerChannel keepEvery
+node --expose-gc --max-semi-space-size=2 tools/memory-bench.js
+```
+
+To hard-cap it, give the container a limit (`mem_limit: 512m` in Compose or
+`docker run --memory 512m`). Keep it well above the peak the bench reports
+for your guide size.
+
 ## Run with Docker Compose
 
 `compose.yaml` in this folder is a drop-in service. It has no paths or names
@@ -411,11 +433,43 @@ play normally.
 | `ZOROFIN_STREAMS_USE_PROVIDER_LIMIT` | `0` to keep your own limit even when the provider reports one |
 | `ZOROFIN_STREAMS_VIEWER_NAMES` | `admins` (default) or `off` |
 | `ZOROFIN_STREAMS_STALE_SECONDS` | Forget a player that hasn't checked in for this long, default 90 |
+| `ZOROFIN_STREAMS_LINES` | Optional. Two or more provider logins to share, as their M3U links (or `http://host:port/user/pass`), separated by spaces (or `_FILE`) |
+| `ZOROFIN_STREAMS_POOL_TOKEN` | Optional token for the line address; left empty, one is made and kept in `data/liveTvStreams/pool-token` |
 
 Needs `ZOROFIN_JELLYFIN_URL` and `ZOROFIN_JELLYFIN_API_KEY`. To allow more
 than one stream, get a plan with more connections from your provider, set
 your tuner's limit (for example Threadfin's tuner count) to match, then set
 the limit here or let the companion read it from the provider.
+
+### Sharing several logins (line pool)
+
+Many IPTV providers sell only one-connection logins. Buy a second (or third)
+login from the same provider and put all of them in **Provider logins to
+share**. The companion then serves a *line address*:
+
+```
+http://<companion>:9310/v1/public/liveTvStreams/<token>/line/<streamId>
+```
+
+Each request opens the stream on whichever login has nothing playing and
+relays it; when every login is busy it answers `503` and the tuner shows no
+free stream. The in-use count then comes from the pool's open logins, so it
+stays right even when Jellyfin can't tell two players apart (two browser tabs
+share one Jellyfin session); streams it can't name show as "more channels". Point the channel list's stream addresses at it:
+
+- **Companion channel list** (`liveTvSource`, Xtream): paste the line address
+  (without the stream id) into **Shared logins line address**.
+- **Threadfin** (or xTeVe): make the playlist's stream addresses use the line
+  address (rewrite each provider stream URL to `<line address>/<stream id>`
+  in the M3U Threadfin reads), then set the playlist's tuner count to the
+  number of logins.
+
+With logins set, the limit is the number of logins (`limitSource: "lines"`),
+and administrators get `lines` in the status: logins, capacity, in use, how
+many streams opened or were refused, and the line address path. The logins
+must be from the same provider (same channel ids). Their passwords are never
+logged or returned. Channel numbers, favorites and the guide don't change,
+since only the stream address does.
 
 ## Module: sportsEvents
 
@@ -445,14 +499,29 @@ carry them.
   soccer "Home vs Away" (or one style for all). Listings never carry scores.
 - **Idle event channels** are hidden, and matched ones are renamed
   "NBA — Lakers at Celtics" (both optional).
-- **Network channels** (opt-in, `ESPN=US| ESPN HD`): games a mapped broadcaster
-  carries get a listing on that channel. Two games in one slot are left out.
+- **Network channels**: games get a listing on the channel of the broadcaster
+  ESPN lists. Channels are found by name (`ESPN`, `US| ESPN HD`, `NBA TV`,
+  `TNT`, `FS1` = `Fox Sports 1`, a local station such as `ABC 7 DC` for ABC);
+  streaming services (`ESPN+`, `Peacock`) and names that fit two channels are
+  skipped. `ESPN=US| ESPN HD` pairs in `ZOROFIN_SPORTS_NETWORKS` win over the
+  automatic match. Two games in one slot are left out.
+- **Jellyfin's guide refresh**: Jellyfin reads the guide only when its
+  *Refresh Guide* task runs (every 24 hours by default) and reuses a guide it
+  downloaded within the last hour. Set that task to every 1-2 hours
+  (Dashboard > Scheduled Tasks) so same-day games and `Live:` titles reach the
+  guide in time. The web Sports row reads Live now directly and is not delayed.
 - **Live now** for the apps: `GET /Zorofin/Companion/sportsEvents/live` (any
   signed-in viewer) returns the games on now, live first, then by league
   priority (or start time, or favorite teams first), with the sport kind the
   apps use for their illustrations, team names, abbreviations and colours,
   broadcasters, matched channels and a favorite flag. `?window=today` adds the
   rest of the next 24 hours. Scores only when the operator turns them on.
+  The response also lists `leagues` (ESPN paths the server follows),
+  `maxGames` and `order`. The web look's "Sports & live events" row uses this
+  feed: cards follow its order and length, favorite teams get a star, and
+  scores show under the title when scores are on. Games from a followed league
+  that the feed left out are dropped; other live events (boxing, college)
+  stay after them. Without the feed, the row keeps its guide-only order.
 
 Setting it up with `liveTvSource`, the guide passes through each step:
 
@@ -475,6 +544,7 @@ Without a channel list the module only serves Live now.
 | `ZOROFIN_SPORTS_EVENT_GROUPS` | Event-slot group names or prefixes |
 | `ZOROFIN_SPORTS_HIDE_IDLE`, `ZOROFIN_SPORTS_RENAME` | `0` to keep idle slots / original names |
 | `ZOROFIN_SPORTS_NETWORKS` | `Broadcaster=Channel name` pairs |
+| `ZOROFIN_SPORTS_AUTO_NETWORKS` | `0` to use only the pairs above (default: find network channels by name) |
 | `ZOROFIN_SPORTS_TITLE_STYLE` | `auto` (default), `at` or `vs` |
 | `ZOROFIN_SPORTS_PREGAME_MINUTES`, `ZOROFIN_SPORTS_POSTGAME_MINUTES` | Default 30 and 15 |
 | `ZOROFIN_SPORTS_FAVORITES` | Team names, server-wide |
@@ -616,6 +686,7 @@ and adds the listed styles and scripts. Files come from one flat folder,
   | --- | --- | --- |
   | Colours | `ZOROFIN_WEB_UI_COLORS` | `zorofin` (default), `ocean`, `violet`, `rose`, `amber`, `crimson`, `graphite`, `custom` |
   | Accent colour | `ZOROFIN_WEB_UI_ACCENT` | `#rrggbb`, used with `custom` |
+  | Card size | `ZOROFIN_WEB_UI_CARD_SIZE` | `compact`, `standard` (default), `large` |
   | Logo | `ZOROFIN_WEB_UI_LOGO` | `zorofin` (default), `custom`, `none` |
   | Logo for wide screens | `ZOROFIN_WEB_UI_LOGO_DESKTOP` | path to a PNG, JPEG or WebP (up to 1 MB) |
   | Logo for phones and TVs | `ZOROFIN_WEB_UI_LOGO_MOBILE` | path to an image; falls back to the wide logo |
@@ -626,6 +697,16 @@ and adds the listed styles and scripts. Files come from one flat folder,
   Logos uploaded in the Dashboard are kept in `<data>/uploads/` and served in
   place of `wordmark.png` and `mark-512.png`; "No logo" adds `32-theme-brand.css`,
   which hides them.
+- **Server looks for every viewer and the apps**: `looks.json` (public, through
+  the plugin at `/Zorofin/Web/ui/looks.json`, no viewer data) returns
+  `{ version: 1, colors, accent: "#rrggbb", cardSize, logo, enforced }`.
+  `enforced` (setting "Same look for every viewer", `ZOROFIN_WEB_UI_LOOKS_ENFORCED`,
+  default on) tells apps to hide their own look settings; off, it is a default
+  viewers can change. The web look
+  applies the card size through the `zoro-cards-compact` / `zoro-cards-large`
+  class on `<html>`; apps read the same file so every client uses the server's
+  accent and card size instead of their own defaults. Changing them needs no
+  Jellyfin restart.
 - `manifest.json` carries a `version` that changes with the files, colours
   and logo. The plugin loads files under `ui/{version}/` and lets browsers
   cache them for a day, so a change shows on the next reload.

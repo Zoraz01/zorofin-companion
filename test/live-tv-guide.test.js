@@ -72,7 +72,7 @@ function harness({ settings = {}, guide = GUIDE } = {}) {
 async function guideText(module) {
   const reply = await module.handlePublic({ segments: [TOKEN, 'guide.xml'] });
   assert.equal(reply.status, 200);
-  return reply.raw.toString('utf8');
+  return fs.readFileSync(reply.file, 'utf8');
 }
 
 test('adds matchups to sports titles and art to programmes without any', async () => {

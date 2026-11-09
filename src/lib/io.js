@@ -50,12 +50,38 @@ function readJsonFile(file, fallback) {
   catch (_) { return fallback; }
 }
 
-function writePrivateJson(file, value) {
+// compact skips the indentation, for large caches no one reads by hand.
+function writePrivateJson(file, value, { compact = false } = {}) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const temporary = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  fs.writeFileSync(temporary, `${compact ? JSON.stringify(value) : JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
   fs.renameSync(temporary, file);
   fs.chmodSync(file, 0o600);
+}
+
+// Writes lines (any iterable of strings) to file, swapping it in only when
+// complete. Lines go out in ~1 MB batches, so a large guide never has to sit
+// in memory as one joined string.
+function writeLinesAtomic(file, lines, { mode = 0o600, batchBytes = 1024 * 1024 } = {}) {
+  const temporary = `${file}.tmp`;
+  const fd = fs.openSync(temporary, 'w', mode);
+  try {
+    let batch = [];
+    let size = 0;
+    for (const line of lines) {
+      batch.push(line);
+      size += line.length + 1;
+      if (size >= batchBytes) {
+        fs.writeSync(fd, `${batch.join('\n')}\n`);
+        batch = [];
+        size = 0;
+      }
+    }
+    if (batch.length) fs.writeSync(fd, `${batch.join('\n')}\n`);
+  } finally {
+    fs.closeSync(fd);
+  }
+  fs.renameSync(temporary, file);
 }
 
 function readSecret(env, name, readFile = fs.readFileSync) {
@@ -66,4 +92,4 @@ function readSecret(env, name, readFile = fs.readFileSync) {
   catch (_) { return ''; }
 }
 
-module.exports = { readJsonFile, readSecret, requestJson, writePrivateJson };
+module.exports = { readJsonFile, readSecret, requestJson, writeLinesAtomic, writePrivateJson };

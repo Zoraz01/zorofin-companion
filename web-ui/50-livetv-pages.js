@@ -10,7 +10,7 @@
 (function (root) {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
   var ACTIVE_CLASS = 'zoro-live-tv-active';
   var CHANNEL_DETAIL_CLASS = 'zoro-live-tv-channel-detail';
   var HIDDEN_CLASS = 'zoroLiveTvHiddenControl';
@@ -56,6 +56,31 @@
     return String(item && item.Type || '') === 'TvChannel';
   }
 
+  // Programme and channel art on Jellyfin 12's Live TV page. Guide images are
+  // mostly channel logos (wide banners or squares); cropping them to fill a
+  // 16:9 tile cuts the logo off. Only art that is already close to 16:9 fills
+  // the tile; everything else is shown whole on a dark tile, like the apps.
+  function artMode(width, height) {
+    var ratio = Number(width) / Number(height);
+    if (!isFinite(ratio) || ratio <= 0) return 'logo';
+    return ratio >= 1.6 && ratio <= 1.95 ? 'photo' : 'logo';
+  }
+
+  // Up to three letters for a channel with no logo: "beIN Sports Xtra" -> "BSX", "ESPN" -> "ESP".
+  function channelInitials(name) {
+    var words = normalizedText(name).replace(/[^A-Za-z0-9 ]+/g, ' ').split(' ').filter(Boolean);
+    if (!words.length) return 'TV';
+    if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+    return words.slice(0, 3).map(function (word) { return word.charAt(0); }).join('').toUpperCase();
+  }
+
+  // Which of Jellyfin 12's Live TV tabs is showing, from its own content.
+  function liveTabFromContent(hasGuide, hasChannelCards) {
+    if (hasGuide) return 'guide';
+    if (hasChannelCards) return 'channels';
+    return 'programs';
+  }
+
   if (typeof module === 'object' && module.exports) {
     module.exports = {
       VERSION: VERSION,
@@ -65,6 +90,9 @@
       isRecordingActionLabel: isRecordingActionLabel,
       isHeaderShortcutLabel: isHeaderShortcutLabel,
       isTvChannelItem: isTvChannelItem,
+      artMode: artMode,
+      channelInitials: channelInitials,
+      liveTabFromContent: liveTabFromContent,
     };
     return;
   }
@@ -81,6 +109,10 @@
     detailRequestId: '',
     requestSerial: 0,
     mountPending: false,
+    page12: null,
+    channelInfo: null,
+    channelInfoAt: 0,
+    channelInfoPending: false,
   };
 
   function isVisible(element) {
@@ -290,6 +322,154 @@
     });
   }
 
+
+  // ---- Jellyfin 12: #liveTvPage (React) ----------------------------------
+  // Jellyfin 12 renamed the Live TV page and draws its rows with React, so the
+  // older #liveTvSuggestedPage rules above never matched on desktop. These
+  // hooks only add classes and an art layer next to Jellyfin's own nodes;
+  // routing, playback, menus and the guide stay Jellyfin's.
+  var ART_CLASS = 'zoroLtvArt';
+  var CARD_SELECTOR = '.card[data-type="Program"], .card[data-type="TvChannel"]';
+
+  function apiClient() {
+    var client = root.ApiClient;
+    try { return client && client.accessToken && client.accessToken() && client.getCurrentUserId() ? client : null; } catch (_) { return null; }
+  }
+
+  function imageUrl(client, id, maxWidth) {
+    var query = { maxWidth: maxWidth, quality: 90 };
+    if (client.getImageUrl) return client.getImageUrl(id, Object.assign({ type: 'Primary' }, query));
+    return client.getUrl('Items/' + encodeURIComponent(id) + '/Images/Primary', query);
+  }
+
+  // Channel names and numbers for the channel line and the no-logo tile.
+  function loadChannelInfo() {
+    var client = apiClient();
+    if (!client || state.channelInfoPending || (state.channelInfo && Date.now() - state.channelInfoAt < 300000)) return;
+    if (typeof client.getLiveTvChannels !== 'function') return;
+    state.channelInfoPending = true;
+    client.getLiveTvChannels({ userId: client.getCurrentUserId(), enableImages: true, imageTypeLimit: 1, enableImageTypes: 'Primary', enableUserData: false, limit: 2000 })
+      .then(function (result) {
+        var info = {};
+        (result && result.Items || []).forEach(function (item) {
+          info[item.Id] = { name: String(item.Name || ''), number: String(item.ChannelNumber || ''), logo: Boolean(item.ImageTags && item.ImageTags.Primary) };
+        });
+        state.channelInfo = info;
+        state.channelInfoAt = Date.now();
+      })
+      .catch(function () { state.channelInfo = state.channelInfo || {}; state.channelInfoAt = Date.now(); })
+      .then(function () { state.channelInfoPending = false; scheduleMount(); });
+  }
+
+  function cardTimes(card) {
+    var start = Date.parse(card.getAttribute('data-startdate') || '');
+    var end = Date.parse(card.getAttribute('data-enddate') || '');
+    return isFinite(start) && isFinite(end) && end > start ? { start: start, end: end } : null;
+  }
+
+  function cardFallbackName(card) {
+    var first = card.querySelector('.cardText-first, .cardText');
+    return normalizedText(first && first.textContent).replace(/^\d+\s+/, '');
+  }
+
+  function fillArt(art, client, sources, label) {
+    var index = 0;
+    function next() {
+      var source = sources[index++];
+      while (art.firstChild) art.removeChild(art.firstChild);
+      if (!source) {
+        art.setAttribute('data-mode', 'initials');
+        var text = document.createElement('span');
+        text.className = 'zoroLtvInitials';
+        text.textContent = channelInitials(label);
+        art.appendChild(text);
+        return;
+      }
+      var img = document.createElement('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.loading = 'lazy';
+      img.addEventListener('load', function () {
+        art.setAttribute('data-mode', artMode(img.naturalWidth, img.naturalHeight));
+      }, { once: true });
+      img.addEventListener('error', next, { once: true });
+      img.src = imageUrl(client, source, 640);
+      art.appendChild(img);
+    }
+    next();
+  }
+
+  function decorateCard(card, client, now) {
+    var type = card.getAttribute('data-type');
+    var id = card.getAttribute('data-id') || '';
+    var channelId = type === 'TvChannel' ? id : (card.getAttribute('data-channelid') || '');
+    var info = state.channelInfo && state.channelInfo[channelId];
+    var host = card.querySelector('.cardContent .cardImageContainer') || card.querySelector('.cardContent');
+    if (!host || !id) return;
+    card.classList.add('zoroLtvCard');
+
+    var key = id + '|' + channelId + '|' + (info ? (info.logo ? 'l' : 'n') : '?');
+    var art = host.querySelector(':scope > .' + ART_CLASS);
+    if (!art || art.getAttribute('data-key') !== key) {
+      if (art) art.remove();
+      art = document.createElement('div');
+      art.className = ART_CLASS;
+      art.setAttribute('aria-hidden', 'true');
+      art.setAttribute('data-key', key);
+      var sources = [];
+      if (type === 'Program') sources.push(id);
+      if (channelId && (!info || info.logo)) sources.push(channelId);
+      fillArt(art, client, sources, info ? info.name : cardFallbackName(card));
+      host.appendChild(art);
+    }
+
+    var box = card.querySelector('.cardBox');
+    if (!box) return;
+    var times = type === 'Program' ? cardTimes(card) : null;
+    var airing = Boolean(times && times.start <= now && now < times.end);
+    card.classList.toggle('zoroLtvAiring', airing);
+
+    // Channel line under the title: "beIN Sports · Ch 2", as the apps show it.
+    var line = box.querySelector(':scope > .zoroLtvChannelLine');
+    var lineText = type === 'Program' && info && info.name ? info.name + (info.number ? ' · Ch ' + info.number : '') : '';
+    if (lineText) {
+      if (!line) { line = document.createElement('div'); line.className = 'zoroLtvChannelLine'; box.appendChild(line); }
+      if (line.textContent !== lineText) line.textContent = lineText;
+    } else if (line) line.remove();
+
+    var progress = box.querySelector(':scope > .zoroLtvProgress');
+    if (airing) {
+      if (!progress) {
+        progress = document.createElement('div');
+        progress.className = 'zoroLtvProgress';
+        progress.setAttribute('aria-hidden', 'true');
+        progress.appendChild(document.createElement('span'));
+        box.appendChild(progress);
+      }
+      progress.firstChild.style.width = Math.max(0, Math.min(100, 100 * (now - times.start) / (times.end - times.start))) + '%';
+    } else if (progress) progress.remove();
+  }
+
+  function decorateLivePage12(page) {
+    var guide = page.querySelector('.tvguide');
+    var tab = liveTabFromContent(Boolean(guide && isVisible(guide)), Boolean(page.querySelector('.card[data-type="TvChannel"]')));
+    if (page.getAttribute('data-zoro-ltv-tab') !== tab) page.setAttribute('data-zoro-ltv-tab', tab);
+    var client = apiClient();
+    if (!client) return;
+    loadChannelInfo();
+    var now = Date.now();
+    var cards = page.querySelectorAll(CARD_SELECTOR);
+    for (var index = 0; index < cards.length; index += 1) decorateCard(cards[index], client, now);
+  }
+
+  function clearLivePage12() {
+    if (state.page12 && document.body.contains(state.page12)) {
+      state.page12.classList.remove(ACTIVE_CLASS);
+      state.page12.removeAttribute('data-zoro-ltv-tab');
+    }
+    state.page12 = null;
+  }
+
   function mount() {
     hideHeaderShortcuts();
     hideRecordingDrawerDestination();
@@ -307,6 +487,14 @@
       livePage.classList.add(ACTIVE_CLASS);
       hideRecordingTabs();
       decoratePlayButtons(livePage);
+    }
+    var page12 = isLiveTvRoute(root.location) ? visibleElement('#liveTvPage') : null;
+    if (state.page12 && state.page12 !== page12) clearLivePage12();
+    if (page12) {
+      state.page12 = page12;
+      page12.classList.add(ACTIVE_CLASS);
+      document.documentElement.classList.add(ACTIVE_CLASS);
+      try { decorateLivePage12(page12); } catch (_) { /* fail open: Jellyfin's own page stays usable */ }
     }
     resolveChannelDetail();
   }
@@ -332,5 +520,7 @@
   root.addEventListener('hashchange', scheduleMount);
   root.addEventListener('pageshow', scheduleMount);
   document.addEventListener('viewshow', scheduleMount);
+  // Progress lines and LIVE pills move with the clock, not only with page changes.
+  root.setInterval(function () { if (state.page12) scheduleMount(); }, 30000);
   scheduleMount();
 })(typeof window !== 'undefined' ? window : null);

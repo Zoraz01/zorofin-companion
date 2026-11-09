@@ -1,7 +1,8 @@
 /* Home card badges, like the iOS and Apple TV apps: a star rating chip in the
  * top-right corner and a quality label ("4K · DV") in the bottom-left corner
  * of every Home card, whichever script drew the card. Other badge styles
- * (Jellyfin Enhanced overlays, row-specific chips) and the play button are
+ * (Jellyfin Enhanced overlays, row-specific chips such as the 4K / HDR
+ * showcase pills from the plugin Home rows) and the play button are
  * hidden on Home so every row looks the same. Presentation only. */
 (function (root, factory) {
   'use strict';
@@ -46,7 +47,7 @@
   var CARDS = '#homeTab .card[data-id], #homeTab .zoroBrowseCard[data-id]';
   var CSS = [
     // One badge style everywhere on Home.
-    '#homeTab .quality-overlay-container, #homeTab .rating-overlay-container, #homeTab .zoroBrowseRating, #homeTab .zhr-badges { display:none!important; }',
+    '#homeTab .quality-overlay-container, #homeTab .rating-overlay-container, #homeTab .zoroBrowseRating, #homeTab .zhr-badges, #homeTab .zph-badges { display:none!important; }',
     '#homeTab .cardScalable > .cardOverlayButton-br { display:none!important; }',
     '#homeTab .zcb-host { position:relative; }',
     '.zcb-rating { position:absolute; top:8px; right:8px; z-index:2; display:inline-flex; align-items:center; gap:4px; padding:5px 8px; border-radius:999px; background:rgba(0,0,0,.82); color:#ffd60a; font:700 12px/1 system-ui,-apple-system,sans-serif; white-space:nowrap; pointer-events:none; }',

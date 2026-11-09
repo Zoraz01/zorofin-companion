@@ -12,10 +12,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { httpUrl } = require('../../config');
-const { readJsonFile, readSecret, requestJson, writePrivateJson } = require('../../lib/io');
+const { readJsonFile, readSecret, requestJson, writeLinesAtomic, writePrivateJson } = require('../../lib/io');
 const { lines, openText } = require('../../lib/http-stream');
 const { dateTokens, eventActive, matchupFromName } = require('./events');
-const { collectGuide, hasCurrent, matchupProgramme, nameKey, renderGuide } = require('./guide');
+const { collectGuide, guideLines, hasCurrent, matchupProgramme, nameKey } = require('./guide');
 const { readPlaylist, renderPlaylist } = require('./m3u');
 const { guideUrl, liveCatalog, shortGuide } = require('./xtream');
 
@@ -59,6 +59,7 @@ function settingsFrom(env) {
     shortGuide: env.ZOROFIN_LIVE_SOURCE_SHORT_GUIDE === '1',
     matchups: env.ZOROFIN_LIVE_SOURCE_MATCHUPS !== '0',
     format,
+    lineAddress: '',
     refreshMs: minutes * 60 * 1000,
     guideMs: guideHours * 60 * 60 * 1000,
   };
@@ -95,6 +96,13 @@ function settingsFrom(env) {
     } catch (_) {
       errors.push(`ZOROFIN_LIVE_SOURCE_EVENT_PATTERN must be a regular expression of 1-${MAX_PATTERN} characters`);
     }
+  }
+  const lineAddress = readSecret(env, 'ZOROFIN_LIVE_SOURCE_LINE_ADDRESS').replace(/\/+$/, '');
+  if (lineAddress) {
+    let ok = false;
+    try { ok = ['http:', 'https:'].includes(new URL(lineAddress).protocol); } catch (_) { ok = false; }
+    if (ok) settings.lineAddress = lineAddress;
+    else errors.push('ZOROFIN_LIVE_SOURCE_LINE_ADDRESS must be the http(s) line address from Live TV streams');
   }
   if (!['ts', 'm3u8', 'short'].includes(format)) errors.push('ZOROFIN_LIVE_SOURCE_STREAM_FORMAT must be ts, m3u8 or short');
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(token)) errors.push('ZOROFIN_LIVE_SOURCE_TOKEN must be 32-128 letters, digits, - or _ (try openssl rand -hex 24)');
@@ -198,7 +206,10 @@ function createLiveTvSource(config, deps = {}) {
       }
       const guideId = entry.id
         || (entry.streamId ? `xt.${entry.streamId}` : `zf.${crypto.createHash('sha1').update(entry.name).digest('hex').slice(0, 12)}`);
-      channels.push({ ...entry, guideId, event });
+      // Shared logins: Xtream channels play through the Live TV streams line
+      // pool, which picks whichever login is free.
+      const url = settings.lineAddress && entry.streamId ? `${settings.lineAddress}/${entry.streamId}` : entry.url;
+      channels.push({ ...entry, url, guideId, event });
       if (channels.length >= settings.maxChannels) break;
     }
     return { channels, events, shownEvents };
@@ -214,7 +225,7 @@ function createLiveTvSource(config, deps = {}) {
     try {
       const fresh = await collectGuide(await open(source.url, { timeout: 300000 }), { ids, names }, now());
       if (!fresh.programmes && cached && cached.programmes) throw new Error('the guide had no listings for these channels');
-      writePrivateJson(source.file, { at: now(), programmes: fresh.programmes, channels: fresh.channels });
+      writePrivateJson(source.file, { at: now(), programmes: fresh.programmes, channels: fresh.channels }, { compact: true });
       Object.assign(result, { at: new Date(now()).toISOString(), programmes: fresh.programmes });
       return { result, channels: fresh.channels };
     } catch (error) {
@@ -287,11 +298,10 @@ function createLiveTvSource(config, deps = {}) {
     filled.empty = missing.length;
 
     fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    for (const [file, text] of [[playlistFile, renderPlaylist(channels)], [guideFile, renderGuide(channels, programmes)]]) {
-      const temporary = `${file}.tmp`;
-      fs.writeFileSync(temporary, text, { mode: 0o600 });
-      fs.renameSync(temporary, file);
-    }
+    const temporary = `${playlistFile}.tmp`;
+    fs.writeFileSync(temporary, renderPlaylist(channels), { mode: 0o600 });
+    fs.renameSync(temporary, playlistFile);
+    writeLinesAtomic(guideFile, guideLines(channels, programmes));
     preview = {
       channels: channels.filter(channel => !channel.event).slice(0, 30).map(channel => ({ name: channel.name, group: channel.group })),
       events: channels.filter(channel => channel.event).slice(0, 50).map(channel => ({ name: channel.name, group: channel.group, matchup: matchupFromName(channel.name) })),
@@ -327,7 +337,7 @@ function createLiveTvSource(config, deps = {}) {
 
   function serveFile(file, contentType) {
     if (!fs.existsSync(file)) return { status: 503, body: { error: 'not_ready' } };
-    return { status: 200, raw: fs.readFileSync(file), contentType };
+    return { status: 200, file, contentType };
   }
 
   return {

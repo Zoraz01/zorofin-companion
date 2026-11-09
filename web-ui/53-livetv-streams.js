@@ -146,8 +146,11 @@
   function renderStrip(c) {
     // Jellyfin 10.x: #liveTvSuggestedPage with tab panels. Jellyfin 12: #liveTvPage, sections directly inside.
     var legacy = onLiveTv() && doc.querySelector('#liveTvSuggestedPage:not(.hide)');
+    var page12 = !legacy && onLiveTv() && doc.querySelector('#liveTvPage:not(.hide)');
+    // Jellyfin 12's guide is absolutely positioned over the page; inside it the strip sits above the dates instead of under them.
+    var guide = page12 && page12.querySelector('.tvguide');
     var anchor = legacy ? Array.prototype.find.call(legacy.querySelectorAll('.pageTabContent:not(.hide)'), visible)
-      : onLiveTv() && doc.querySelector('#liveTvPage:not(.hide)');
+      : visible(guide) ? guide : page12;
     if (!visible(anchor) || !fresh() || !status.streams.length) { if (strip) strip.remove(); strip = null; return; }
     if (!strip) { strip = el('section', 'zls-strip'); strip.setAttribute('aria-label', 'Playing now on Live TV'); }
     if (strip.parentNode !== anchor || anchor.firstChild !== strip) anchor.insertBefore(strip, anchor.firstChild);

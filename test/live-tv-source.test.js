@@ -134,7 +134,7 @@ function xtreamHarness(overrides = {}) {
 }
 
 const admin = { admin: true };
-const text = reply => reply.raw.toString('utf8');
+const text = reply => (reply.file ? fs.readFileSync(reply.file) : reply.raw).toString('utf8');
 
 test('builds a slim playlist and a merged guide from an Xtream login', async () => {
   const { module, state } = xtreamHarness();
@@ -225,4 +225,23 @@ test('group divider rows are left out, with or without a country prefix', () => 
   for (const name of ['US| ESPN HD', 'NBA 01: Lakers vs Celtics', 'US| #1 Hits', 'C-SPAN']) {
     assert.equal(isDivider(name), false, name);
   }
+});
+
+test('kept programmes come out whole when copied away from large chunks', async () => {
+  // collectGuide copies each kept block so it does not pin its chunk in
+  // memory (see tools/memory-bench.js); the copy must still be exact.
+  const filler = `<programme start="${T(0)}" stop="${T(1)}" channel="skip"><title>${'x'.repeat(200)}</title></programme>`;
+  const xml = `<tv><channel id="keep"><display-name>K</display-name></channel>${filler.repeat(50)}<programme start="${T(0)}" stop="${T(1)}" channel="keep"><title>Kept</title></programme>${filler.repeat(50)}</tv>`;
+  const result = await collectGuide(chunked(xml, 4096), { ids: new Set(['keep']), names: new Map() }, NOW);
+  assert.equal(result.programmes, 1);
+  assert.match(result.channels.keep[0].block, /<title>Kept<\/title>/);
+});
+
+test('with a shared logins line address, channels play through the line pool', async () => {
+  const { module } = xtreamHarness({ ZOROFIN_LIVE_SOURCE_LINE_ADDRESS: 'http://127.0.0.1:9310/v1/public/liveTvStreams/' + 'd'.repeat(48) + '/line/' });
+  await module.refresh();
+  const playlist = text(await module.handlePublic({ segments: [TOKEN, 'channels.m3u'] }));
+  assert.match(playlist, /,US\| ESPN HD\nhttp:\/\/127\.0\.0\.1:9310\/v1\/public\/liveTvStreams\/d{48}\/line\/1\n/);
+  assert.doesNotMatch(playlist, /secret-pass/);
+  assert.throws(() => xtreamHarness({ ZOROFIN_LIVE_SOURCE_LINE_ADDRESS: 'not a url' }), /LINE_ADDRESS/);
 });

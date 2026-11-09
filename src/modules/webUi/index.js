@@ -59,6 +59,15 @@ function featuresFrom(env) {
 }
 
 const LOGOS = ['zorofin', 'none', 'custom'];
+const CARD_SIZES = ['compact', 'standard', 'large'];
+const HEX = /^#[0-9a-f]{6}$/i;
+
+// The server's look as plain values, for the web look and for the apps:
+// one accent colour and one card size for every viewer.
+function looksFrom(colors, accent, cardSize, logoMode, enforced = true) {
+  const hex = colors === 'custom' ? (HEX.test(accent) ? accent.toLowerCase() : PRESETS.zorofin.color) : PRESETS[colors].color;
+  return { version: 1, colors, accent: hex, cardSize: CARD_SIZES.includes(cardSize) ? cardSize : 'standard', logo: logoMode, enforced: Boolean(enforced) };
+}
 
 function settingsFrom(env) {
   const colors = Object.prototype.hasOwnProperty.call(PRESETS, env.ZOROFIN_WEB_UI_COLORS) || env.ZOROFIN_WEB_UI_COLORS === 'custom'
@@ -76,6 +85,8 @@ function settingsFrom(env) {
       mobile: env.ZOROFIN_WEB_UI_LOGO_MOBILE || '',
     },
     sportsArt: sportsArtFrom(env),
+    looks: looksFrom(colors, (env.ZOROFIN_WEB_UI_ACCENT || '').trim(), (env.ZOROFIN_WEB_UI_CARD_SIZE || '').trim(),
+      LOGOS.includes(env.ZOROFIN_WEB_UI_LOGO) ? env.ZOROFIN_WEB_UI_LOGO : 'zorofin', flag(env.ZOROFIN_WEB_UI_LOOKS_ENFORCED, true)),
   };
 }
 
@@ -156,7 +167,10 @@ function createWebUi(config, deps = {}) {
     maxBytes: sports.maxBytes,
   })) : null;
   // Tells the sports row it can ask this server for the catalogue.
+  const looks = settings.looks || looksFrom('zorofin', '', 'standard', logo.mode);
   const extraClasses = art ? ['zorofin-sports-art'] : [];
+  // Card size for every viewer: the theme reads html.zoro-cards-compact / -large.
+  if (looks.cardSize !== 'standard') extraClasses.push(`zoro-cards-${looks.cardSize}`);
   let timer = null;
 
   function list(dir) {
@@ -242,6 +256,11 @@ function createWebUi(config, deps = {}) {
       }
       if (segments.length !== 1) return { status: 404, body: { error: 'Not found' } };
       const name = segments[0];
+      // Public like the rest of the look (it loads before sign-in) and the same
+      // for every viewer. The apps read it to match the server's look.
+      if (name === 'looks.json') {
+        return { status: 200, raw: Buffer.from(`${JSON.stringify(looks)}\n`), contentType: TYPES.json, cacheControl: 'no-cache' };
+      }
       if (name === 'manifest.json') {
         const names = files();
         const raw = Buffer.from(`${JSON.stringify(manifestFor(names, features, version(names), extraClasses))}\n`);
@@ -283,4 +302,4 @@ function createWebUi(config, deps = {}) {
   };
 }
 
-module.exports = { ID, FEATURES, createWebUi, featureOf, featuresFrom, manifestFor, settingsFrom };
+module.exports = { ID, FEATURES, CARD_SIZES, createWebUi, looksFrom, featureOf, featuresFrom, manifestFor, settingsFrom };

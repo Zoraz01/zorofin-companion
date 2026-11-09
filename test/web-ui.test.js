@@ -163,3 +163,25 @@ test('an add-ons folder is listed with the pack, wins on the same name, and refu
   const plain = createWebUi({}, { env: { ZOROFIN_WEB_UI_DIR: dir } });
   assert.equal((await plain.handlePublic({ segments: ['70-site-support.js'] })).status, 404);
 });
+
+test('server looks: one accent and card size for the web look and the apps', async () => {
+  const { settingsFrom } = require('../src/modules/webUi');
+  const dir = folder({ '10-theme-base.css': 'a{}' });
+  const read = async env => {
+    const ui = createWebUi({}, { settings: { ...settingsFrom({ ...env, ZOROFIN_WEB_UI_DIR: dir }) } });
+    const looks = JSON.parse((await ui.handlePublic({ segments: ['looks.json'] })).raw);
+    const manifest = JSON.parse((await ui.handlePublic({ segments: ['manifest.json'] })).raw);
+    return { looks, classes: manifest.classes };
+  };
+  const plain = await read({});
+  assert.deepEqual(plain.looks, { version: 1, colors: 'zorofin', accent: '#42d779', cardSize: 'standard', logo: 'zorofin', enforced: true });
+  assert.ok(!plain.classes.some(name => name.startsWith('zoro-cards-')));
+  const custom = await read({ ZOROFIN_WEB_UI_COLORS: 'custom', ZOROFIN_WEB_UI_ACCENT: '#FF00AA', ZOROFIN_WEB_UI_CARD_SIZE: 'large' });
+  assert.equal(custom.looks.accent, '#ff00aa');
+  assert.equal(custom.looks.cardSize, 'large');
+  assert.ok(custom.classes.includes('zoro-cards-large'));
+  assert.equal((await read({ ZOROFIN_WEB_UI_COLORS: 'ocean' })).looks.accent, '#3d9cff');
+  assert.equal((await read({ ZOROFIN_WEB_UI_COLORS: 'custom', ZOROFIN_WEB_UI_ACCENT: 'red' })).looks.accent, '#42d779', 'a bad custom colour falls back');
+  assert.equal((await read({ ZOROFIN_WEB_UI_CARD_SIZE: 'huge' })).looks.cardSize, 'standard');
+  assert.equal((await read({ ZOROFIN_WEB_UI_LOOKS_ENFORCED: 'false' })).looks.enforced, false, 'a default viewers may change');
+});

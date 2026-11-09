@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const fs = require('fs');
 const http = require('http');
 const { NonceCache, verifyRequest } = require('./bridge-auth');
 const { MODULE_ID } = require('./modules');
@@ -29,6 +30,32 @@ function sendRaw(res, reply) {
     'X-Content-Type-Options': 'nosniff',
   });
   res.end(reply.raw);
+}
+
+// Streams a file reply ({ file }) from disk instead of reading it whole into
+// memory, so several readers fetching a large guide at once cost little.
+function sendFile(res, reply) {
+  // Open first, then size the open copy: a refresh can rename a new file over
+  // this one at any time, and the descriptor keeps reading the copy we sized.
+  let fd;
+  let size;
+  try {
+    fd = fs.openSync(reply.file, 'r');
+    size = fs.fstatSync(fd).size;
+  } catch (_) {
+    if (fd !== undefined) fs.closeSync(fd);
+    return send(res, 404, { error: 'Not found' });
+  }
+  res.writeHead(reply.status, {
+    'Content-Type': reply.contentType || 'application/octet-stream',
+    'Content-Length': size,
+    'Cache-Control': reply.cacheControl || 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  const stream = fs.createReadStream(null, { fd });
+  stream.on('error', () => res.destroy());
+  res.on('close', () => stream.destroy());
+  return stream.pipe(res);
 }
 
 function readBody(req, max = MAX_BODY_BYTES) {
@@ -125,11 +152,22 @@ function createServer({ config, registry, settings = null, now = Date.now, log =
 
       const open = /^\/v1\/public\/([^/]+)(\/.*)?$/.exec(url.pathname);
       if (open) {
-        if (req.method !== 'GET') return send(res, 405, { error: 'Method not allowed' });
+        // HEAD too: Jellyfin and Threadfin check a stream's type with HEAD
+        // before playing, and refuse to share it between viewers otherwise.
+        if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed' });
         const module = MODULE_ID.test(open[1]) ? registry.get(open[1]) : null;
         if (!module || typeof module.handlePublic !== 'function') return send(res, 404, { error: 'Not found' });
         const reply = await module.handlePublic({ segments: decodeSegments(open[2] || ''), query: url.searchParams });
         if (reply && Buffer.isBuffer(reply.raw)) return sendRaw(res, reply);
+        if (reply && typeof reply.file === 'string') return sendFile(res, reply);
+        if (reply && typeof reply.stream === 'function') {
+          // A HEAD answers with the type only and never opens a stream.
+          if (req.method === 'HEAD') {
+            res.writeHead(200, { 'Content-Type': reply.contentType || 'application/octet-stream', 'Cache-Control': 'no-store' });
+            return res.end();
+          }
+          return reply.stream(res);
+        }
         return send(res, reply && Number.isInteger(reply.status) ? reply.status : 500, reply ? reply.body : null);
       }
 

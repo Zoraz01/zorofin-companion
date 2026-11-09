@@ -1132,6 +1132,13 @@ html.zoro-ui .zoroBrowseRating { position:absolute; right:6px; bottom:6px; paddi
  * flow on touch layouts and stretches native 16:9 cards to about 5:4. */
 /* Bottom-left, clear of the rating chips in the bottom-right corner. */
 html.zoro-ui .cardScalable > .cardOverlayButton-br { position:absolute!important; left:5px!important; right:auto!important; bottom:5px!important; }
+/* Card size the server sets for every viewer (companion webUi "Card size"). */
+html.zoro-ui.zoro-shell-active.zoro-cards-compact { --zoro-home-art:clamp(200px,18vw,320px); --zoro-home-gap:16px; --zoro-home-title:16px; --zoro-home-meta:14px; }
+html.zoro-ui.zoro-shell-active.zoro-cards-large { --zoro-home-art:clamp(300px,29vw,500px); --zoro-home-gap:24px; --zoro-home-title:20px; --zoro-home-meta:16px; }
+@media(max-width:599px) {
+ html.zoro-ui.zoro-shell-active.zoro-cards-compact { --zoro-home-art:200px; --zoro-home-title:14px; --zoro-home-meta:12px; }
+ html.zoro-ui.zoro-shell-active.zoro-cards-large { --zoro-home-art:280px; --zoro-home-title:16px; --zoro-home-meta:14px; }
+}
 
 /* React replaces the Modern header's class list on scroll. Anchor geometry to
    its native component, never the presentation class added by the bridge. */

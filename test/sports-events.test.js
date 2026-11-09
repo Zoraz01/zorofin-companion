@@ -101,7 +101,7 @@ function harness(overrides = {}) {
   return { module, clock, state };
 }
 
-const text = reply => reply.raw.toString('utf8');
+const text = reply => (reply.file ? fs.readFileSync(reply.file) : reply.raw).toString('utf8');
 const viewer = { admin: false };
 
 test('channel names give a kickoff time in the provider time zone', () => {
@@ -144,6 +144,8 @@ test('Live now lists games like the apps: live first, spoiler-free, favorites ma
   await module.refresh();
   const { body } = await module.handle({ method: 'GET', segments: ['live'], query: new URLSearchParams(), viewer });
   assert.equal(body.spoilerFree, true);
+  assert.ok(body.leagues.includes('basketball/nba'));
+  assert.equal(typeof body.maxGames, 'number');
   assert.deepEqual(body.games.map(game => game.title), ['LA Clippers at New York Knicks', 'Los Angeles Lakers at Boston Celtics', 'Arsenal vs Chelsea']);
   const [live, next, ended] = body.games;
   assert.equal(live.live, true);
@@ -204,4 +206,46 @@ test('settings explain what is wrong, and every setting has a Dashboard field', 
   const used = new Set(source.match(/ZOROFIN_SPORTS_[A-Z_]+/g));
   const fields = new Set(SECTIONS.sportsEvents.options.map(option => option.env));
   for (const name of used) assert.ok(fields.has(name), `${name} has no Dashboard field`);
+});
+
+test('network channels are found by name without a Networks list', () => {
+  const { createNetworkFinder, channelKey } = require('../src/modules/sportsEvents/networks');
+  const names = ['ESPN', 'ESPN 2', 'ESPN U', 'ESPN News', 'ABC 7 DC', 'Fox 5 DC', 'CBS', 'NBC 4 Washington', 'NBA TV', 'NBA', 'TNT', 'TNT Sports 1',
+    'NFL Network', 'Fox Sports 1 HD', 'US| Usa Network', 'Altitude Sports', 'Monumental Sports Network', 'CBS Sports Network', 'Big Ten Network'];
+  const find = createNetworkFinder(names.map(name => ({ name })));
+  const name = broadcaster => (find(broadcaster) || {}).name || null;
+  assert.equal(channelKey('US| ESPN HD'), 'espn');
+  assert.equal(name('ESPN'), 'ESPN');
+  assert.equal(name('ESPN2'), 'ESPN 2');
+  assert.equal(name('ABC'), 'ABC 7 DC');
+  assert.equal(name('FOX'), 'Fox 5 DC');
+  assert.equal(name('NBC'), 'NBC 4 Washington');
+  assert.equal(name('CBS'), 'CBS');
+  assert.equal(name('NBA TV'), 'NBA TV');
+  assert.equal(name('TNT'), 'TNT');
+  assert.equal(name('NFL Net'), 'NFL Network');
+  assert.equal(name('FS1'), 'Fox Sports 1 HD');
+  assert.equal(name('USA Net'), 'US| Usa Network');
+  assert.equal(name('MNMT'), 'Monumental Sports Network');
+  assert.equal(name('Altitude Sports'), 'Altitude Sports');
+  assert.equal(name('CBSSN'), 'CBS Sports Network');
+  // Streaming services and unknown regional names are never guessed.
+  assert.equal(name('ESPN+'), null);
+  assert.equal(name('Disney+'), null);
+  assert.equal(name('Peacock'), null);
+  assert.equal(name('Spectrum Sports Net'), null);
+  // Two equally good channels: neither.
+  const twice = createNetworkFinder([{ name: 'ABC 7 DC' }, { name: 'ABC 2 Baltimore' }]);
+  assert.equal(twice('ABC'), null);
+});
+
+test('without a Networks list, games land on channels named after their broadcaster', async () => {
+  const { module } = harness({ ZOROFIN_SPORTS_NETWORKS: '', ZOROFIN_SPORTS_EVENT_GROUPS: '' });
+  await module.refresh();
+  const guide = text(await module.handlePublic({ segments: [TOKEN, 'guide.xml'] }));
+  assert.match(guide, /<programme channel="ESPN\.us"[^>]*><title lang="en">NBA Basketball — Los Angeles Lakers at Boston Celtics/);
+  assert.doesNotMatch(guide, /SportsCenter/);
+  const off = harness({ ZOROFIN_SPORTS_NETWORKS: '', ZOROFIN_SPORTS_EVENT_GROUPS: '', ZOROFIN_SPORTS_AUTO_NETWORKS: '0' });
+  await off.module.refresh();
+  assert.match(text(await off.module.handlePublic({ segments: [TOKEN, 'guide.xml'] })), /SportsCenter/);
 });

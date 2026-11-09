@@ -176,11 +176,67 @@
     var map = {'espn':'espn-us','espn 2':'espn-2-us','espn u':'espn-u-us','espn news':'espnews-us','fox sports 1':'fox-sports-1-us','fox sports 2':'fox-sports-2-us','fox soccer plus':'fox-soccer-plus-us','cbs sports network':'cbs-sports-network-us','cbs sports golazo network':'cbs-sports-golazo-network-us','willow cricket':'willow-us','tnt':'tnt-us','nba tv':'nba-tv-us','nfl network':'nfl-network-us','sec network':'sec-network-us','bein sports':'bein-sports-us','bein sports 2':'bein-sports-2-us','bein sports xtra':'bein-sports-xtra-us'};
     return map[clean] ? '/live-tv-logos/real/' + map[clean] + '.png' : '';
   }
+  // Scores come from the companion's Live now feed (ESPN scoreboards), only
+  // when the operator turned scores on. A card gets a score only when both of
+  // its guide teams name the same game, or the companion matched the game to
+  // this channel, and the game started within six hours of the listing.
+  function sameTeam(guide, side) {
+    var g=normalized(guide);if(!g || !side)return false;
+    return [side.name,side.short].some(function(value){var v=normalized(value);return v && (g===v || g.length>3 && (v.slice(-g.length-1)===' '+g || g.slice(-v.length-1)===' '+v));}) || normalized(side.abbreviation)===g;
+  }
+  function gameIndexFor(event, games) {
+    if(!event || !Array.isArray(games))return -1;
+    // Event channels are named after their game ("NBA — Nets At Mavericks"), so
+    // the channel name is a second source of the two teams.
+    var named=String(event.channel || '').split(' — '), channel=normalized(event.channel);
+    var pairs=[event.matchup,event.artwork && event.artwork.teams,named.length>1 ? teams(named[named.length-1]) : null].filter(function(p){return p && p.length===2;});
+    for(var i=0;i<games.length;i++){
+      var game=games[i];
+      if(!game || !game.home || !game.away)continue;
+      var start=Date.parse(game.start);if(!isFinite(start) || Math.abs(start-event.start)>6*3600000)continue;
+      var byTeams=pairs.some(function(pair){return pair.every(function(team){return sameTeam(team,game.home) || sameTeam(team,game.away);}) && !(sameTeam(pair[0],game.home) && sameTeam(pair[1],game.home)) && !(sameTeam(pair[0],game.away) && sameTeam(pair[1],game.away));});
+      var byChannel=channel && (game.channels || []).some(function(c){return c && normalized(c.name)===channel;});
+      if(byTeams || byChannel)return i;
+    }
+    return -1;
+  }
+  function scoreFor(event, games) {
+    var game=games && games[gameIndexFor(event,games)];
+    if(!game || !game.score || game.state==='pre')return null;
+    var label=function(side){return String(side.abbreviation || side.short || side.name).slice(0,12);};
+    var home=String(game.score.home || ''), away=String(game.score.away || '');
+    if(!/^\d{1,3}$/.test(home) || !/^\d{1,3}$/.test(away))return null;
+    // Very dark team colours (Nets black) would vanish on the dark page.
+    var color=function(side){var c=String(side.color || '');if(!/^#[0-9a-f]{6}$/i.test(c))return '';var n=parseInt(c.slice(1),16);return ((n>>16)*299+((n>>8)&255)*587+(n&255)*114)/1000<40 ? '#d9dedb' : c;};
+    var name=function(side){return String(side.short || side.name || '').slice(0,24);};
+    // Card background tint: away team, or home when the away colour is near black.
+    var tint=function(side){var c=color(side);return c && c!=='#d9dedb' ? c : '';};
+    return {away:label(game.away),awayScore:away,home:label(game.home),homeScore:home,detail:String(game.detail || '').slice(0,40),final:game.state==='post',awayName:name(game.away),homeName:name(game.home),awayColor:color(game.away),homeColor:color(game.home),league:String(game.leagueName || '').slice(0,24),tint:tint(game.away) || tint(game.home)};
+  }
+  // With the companion's Live now feed, the row follows the operator's
+  // settings: feed order (Live now order and favorite teams), its length (most
+  // games) and its leagues. Games the feed covers but left out are dropped;
+  // events it can't know about (boxing, cricket, college) keep their place after.
+  function arrangeWithFeed(events, feed) {
+    var games=feed && feed.games, covered=feed && Array.isArray(feed.leagues) ? feed.leagues : [];
+    if(!Array.isArray(games))return events;
+    var matched=[], others=[];
+    events.forEach(function(event){
+      var at=gameIndexFor(event,games);
+      if(at>=0){var game=games[at];event.favoriteTeam=!!(game.home.favorite || game.away.favorite);if(!event.matchup && game.title && /^[^<>]{3,80}$/.test(game.title))event.name=String(game.title);event.score=scoreFor(event,games);matched.push({at:at,event:event});}
+      else if(covered.indexOf(leagueFor(event.leagueContext || ''))<0)others.push(event);
+    });
+    matched.sort(function(a,b){return a.at-b.at;});
+    var seen=Object.create(null);
+    return matched.filter(function(m){if(seen[m.at])return false;seen[m.at]=true;return true;}).map(function(m){return m.event;}).concat(others);
+  }
+  function scoreText(score) { return score ? score.away+' '+score.awayScore+' – '+score.homeScore+' '+score.home+(score.detail?' · '+score.detail:'') : ''; }
   function mount(window) {
     if (!window || window.zorofinLiveEventsLoaded) return;
     window.zorofinLiveEventsLoaded = true;
     var document = window.document, ID = 'zoroLiveEvents', TTL = 60000;
     var artwork=null, artUpdated=0, artPending=false, ART_TTL=300000;
+    var scores=null, scoresUpdated=0, scoresPending=false, scoresMissingUntil=0, SCORE_TTL=60000;
     var identity = '', generation = 0, channels = [], updated = 0, success = 0, failed = false, pending = false, scheduled = false, timer = null, row = null, signature = '';
     function clientIdentity() {
       try { var api=window.ApiClient; return api && api.accessToken() && api.getCurrentUserId() ? api.serverId()+':'+api.getCurrentUserId()+':'+api.accessToken() : ''; } catch (_) { return ''; }
@@ -189,12 +245,27 @@
       // Reuse this exact event/artwork pipeline for Live TV's
       // curated view. Guide and Channels keep their native content and handlers.
       if(document.hidden)return null;
-      if((window.ZorofinUI && window.ZorofinUI.active || window.ZorofinOwnerTrial && window.ZorofinOwnerTrial.active) && /^#\/livetv(?:[?]|$)/.test(window.location.hash)){
-        var live=document.querySelector('#liveTvSuggestedPage:not(.hide) #suggestionsTab.is-active');
-        if(!live || !live.getClientRects().length)return null;
+      var themed=window.ZorofinUI && window.ZorofinUI.active || window.ZorofinOwnerTrial && window.ZorofinOwnerTrial.active;
+      // Jellyfin 10.x: the curated view is the Suggestions tab of #liveTvSuggestedPage.
+      var live=themed && /^#\/livetv(?:[?]|$)/.test(window.location.hash) && document.querySelector('#liveTvSuggestedPage:not(.hide) #suggestionsTab.is-active');
+      if(live && live.getClientRects().length){
         var host=live.querySelector('#zoroLiveNowHost');
         if(!host){host=node('div');host.id='zoroLiveNowHost';live.appendChild(host);live.classList.add('zoro-live-curated');}
         return host;
+      }
+      // Jellyfin 12: one #liveTvPage whose Programs tab lists React rows directly.
+      // The row goes above them (under the Live TV streams strip), as on Home in the apps.
+      if(/^#\/livetv(?:[?]|$)/.test(window.location.hash)){
+        if(/[?&]tab=(?!0(?:&|$))\d+/.test(window.location.hash))return null;
+        var page12=document.querySelector('#liveTvPage:not(.hide)');
+        if(!page12 || !page12.getClientRects().length || page12.querySelector('.tvguide'))return null;
+        var first=null;
+        for(var k=0;k<page12.children.length;k++){var child=page12.children[k];if(child.id!=='zoroLiveNowHost12' && child.classList.contains('verticalSection')){first=child;break;}}
+        if(!first)return null;
+        var host12=page12.querySelector(':scope > #zoroLiveNowHost12');
+        if(!host12){host12=node('div');host12.id='zoroLiveNowHost12';}
+        if(host12.nextElementSibling!==first)page12.insertBefore(host12,first);
+        return host12;
       }
       if(/[?&]zorofin=requests(?:&|$)/.test(window.location.hash))return null;
       if (document.hidden || !/(?:^|[\/#])home(?:\.html)?(?:[?&]|$)/i.test(window.location.hash) || /[?&]tab=(?!0(?:&|$))\d+/i.test(window.location.hash)) return null;
@@ -227,6 +298,23 @@
         if(result && result.version===2 && Array.isArray(result.events))artwork=result;
       }).catch(function(){}).then(function(){clearTimeout(timeout);artPending=false;if(homeHost() && identity===clientIdentity())render();});
     }
+    // Live scores from the companion. Missing route (no companion or module off)
+    // backs off for ten minutes; spoiler-free servers send no score fields.
+    function loadScores() {
+      var api=window.ApiClient;
+      if(scoresPending || Date.now()<scoresMissingUntil || Date.now()-scoresUpdated<SCORE_TTL || !api || !api.getUrl || !api.accessToken || !select(channels,Date.now()).length)return;
+      scoresPending=true;scoresUpdated=Date.now();
+      var epoch=generation, controller=window.AbortController ? new window.AbortController() : null, timeout=setTimeout(function(){if(controller)controller.abort();},4000);
+      Promise.resolve().then(function(){return window.fetch(api.getUrl('Zorofin/Companion/sportsEvents/live',{window:'today'}),{headers:{Authorization:'MediaBrowser Token="'+api.accessToken()+'"'},cache:'no-store',signal:controller ? controller.signal : undefined});}).then(function(response){
+        if(response.status===404 || response.status===403){scoresMissingUntil=Date.now()+600000;return null;}
+        return response.ok ? response.json() : null;
+      }).then(function(body){
+        if(epoch!==generation || !body)return;
+        // No successful schedule read yet: keep the guide-only row.
+        scores=Array.isArray(body.games) && body.updatedAt ? {games:body.games.filter(function(g){return g && g.home && g.away;}),leagues:Array.isArray(body.leagues) ? body.leagues : []} : null;
+        if(homeHost() && identity===clientIdentity())render();
+      }).catch(function(){}).then(function(){clearTimeout(timeout);scoresPending=false;});
+    }
     function styles() {
       if(document.getElementById(ID+'Styles')) return;
       var el=node('style');el.id=ID+'Styles';
@@ -249,6 +337,8 @@
         '#zoroLiveEvents .zle-team-logos img{width:34%;height:72%;object-fit:contain}',
         '#zoroLiveEvents .zle-team-logos span{font-size:14px;font-weight:700;color:#bce2c8}',
         '#zoroLiveEvents .zle-event-image{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain}',
+        // Guide images are often the channel's logo: show it whole with room around it, like the apps' channel tiles.
+        '#zoroLiveEvents .zle-logo-art .zle-media{background:linear-gradient(135deg,#1b2520,#0d110f)}#zoroLiveEvents .zle-logo-art .zle-event-image{box-sizing:border-box;padding:14% 16%}',
         '#zoroLiveEvents .zle-sport-graphic{position:absolute;inset:0;color:#b8cfe0;background:linear-gradient(135deg,#263c50,#111a24)}',
         '#zoroLiveEvents .zle-sport-graphic svg{display:block;width:100%;height:100%}',
         '#zoroLiveEvents [data-sport=soccer] .zle-sport-graphic,#zoroLiveEvents [data-sport=golf] .zle-sport-graphic{color:#a8d9c4;background:linear-gradient(135deg,#21483e,#122820)}',
@@ -257,10 +347,23 @@
         '#zoroLiveEvents [data-sport=racing] .zle-sport-graphic{color:#cebbeb;background:linear-gradient(135deg,#403252,#221b30)}',
         '#zoroLiveEvents [data-sport=combat] .zle-sport-graphic{color:#e8b8bd;background:linear-gradient(135deg,#512c38,#2b1b24)}',
         '#zoroLiveEvents .zle-top{position:absolute;top:10px;left:10px;right:10px;z-index:1;display:flex;pointer-events:none}',
-        '#zoroLiveEvents .zle-live{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#000000bf;color:#fff;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}',
-        '#zoroLiveEvents .zle-live:before{content:"";width:7px;height:7px;border-radius:50%;background:#ff453a}',
+        '#zoroLiveEvents .zle-live{display:inline-flex;align-items:center;padding:2px 6px;border-radius:4px;background:#e5484d;color:#fff;font-size:10px;font-weight:700;line-height:14px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}',
+        '#zoroLiveEvents .zle-fav{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#000000bf;color:#ffd60a;font-size:13px;line-height:1}',
+        '#zoroLiveEvents .zle-top{top:8px;left:8px;right:8px;align-items:flex-start}',
         '#zoroLiveEvents .zle-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:10px;font-size:var(--zoro-home-title,18px);font-weight:600;line-height:1.3;overflow-wrap:anywhere}',
         '#zoroLiveEvents .zle-channel{display:block;margin-top:4px;font-size:var(--zoro-home-meta,15px);line-height:1.3;color:#bbc5bd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        // Scores like ESPN's and Prime Video's game tiles: the art stays clean;
+        // under it a status caption, then one row per team (colour edge, code,
+        // name, big tabular score) with the trailing team dimmed.
+        '#zoroLiveEvents .zle-scored .zle-art{background:linear-gradient(135deg,var(--zle-tint,#1e3a5f),#102421 60%,#000)}',
+        '#zoroLiveEvents .zle-scored .zle-art[data-art-kind=sport_graphic] .zle-media{display:none}',
+        '#zoroLiveEvents .zle-scored .zle-team-logos{align-items:flex-start;padding-top:9%}#zoroLiveEvents .zle-scored .zle-team-logos img{height:46%}',
+        '#zoroLiveEvents .zle-board{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;padding:10px 12px;box-sizing:border-box;background:linear-gradient(to top,#000000eb,#000000a6 36%,#00000000 68%);color:#f5f7f5;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #00000080}',
+        '#zoroLiveEvents .zle-board .t{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:calc(var(--zoro-home-title,18px) - 3px);font-weight:700;line-height:1.3}',
+        '#zoroLiveEvents .zle-board .t span:first-child{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '#zoroLiveEvents .zle-final .zle-board .t:not(.zle-lead){color:#bbc5bd}',
+        '#zoroLiveEvents .zle-status{display:block;margin-top:8px;font-size:calc(var(--zoro-home-title,18px) - 4px);font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '#zoroLiveEvents .zle-scored .zle-channel{margin-top:2px;font-size:calc(var(--zoro-home-meta,15px) - 2px)}',
         '#zoroLiveEvents .zle-time{display:block;margin-top:2px;font-size:calc(var(--zoro-home-meta,15px) - 1px);line-height:1.3;color:#bbc5bd}',
         '#zoroLiveEvents .zle-progress{height:3px;margin-top:8px;border-radius:999px;background:var(--zoro-ui-border,#ffffff2e);overflow:hidden}#zoroLiveEvents .zle-progress span{display:block;height:100%;border-radius:999px;background:var(--zoro-ui-accent-strong,#25b85f)}',
         '#zoroLiveEvents a:focus-visible{outline:3px solid #fff;outline-offset:4px}',
@@ -274,7 +377,7 @@
     function render() {
       var host=homeHost(), now=Date.now();
       if(!host || !identity || identity!==clientIdentity()) {clear();return [];}
-      var events=now-success<2*TTL ? select(channels,now) : [];
+      var events=now-success<2*TTL ? arrangeWithFeed(select(channels,now),scores) : [];
       if(!events.length){
         clear();
         if(host.id==='zoroLiveNowHost'){
@@ -300,15 +403,15 @@
       else {clear();row=node('section','verticalSection');row.id=ID;row.setAttribute('aria-labelledby',ID+'Title');}
       styles();
       var heading=node('div','zle-heading'), title=node('h2','sectionTitle'), titleLink=node('a','zle-heading-link',host.id==='zoroLiveNowHost'?'Live now':'Sports & live events');title.id=ID+'Title';
-      titleLink.href='#/livetv?collectionType=livetv';title.appendChild(titleLink);heading.appendChild(title);
-      var all=node('a','zle-all','All channels');all.href=host.id==='zoroLiveNowHost'?'#/livetv?tab=2':titleLink.href;
+      titleLink.href=host.id==='zoroLiveNowHost12'?'#/livetv?collectionType=livetv&tab=2':'#/livetv?collectionType=livetv';title.appendChild(titleLink);heading.appendChild(title);
+      var all=node('a','zle-all','All channels');all.href=host.id==='zoroLiveNowHost'?'#/livetv?tab=2':host.id==='zoroLiveNowHost12'?'#/livetv?collectionType=livetv&tab=2':titleLink.href;
       var chevron=node('span','','›');chevron.setAttribute('aria-hidden','true');all.appendChild(chevron);heading.appendChild(all);row.appendChild(heading);
       var track=node('div','zle-track');
       events.forEach(function(e){
         var link=node('a','zle-card');link.href=details(e.id);link.setAttribute('data-channel-id',e.id);
-        link.setAttribute('aria-label',e.name+', live on '+e.channel+', '+time(e.start)+' to '+time(e.end)+'. Open channel.');
+        link.setAttribute('aria-label',e.name+(e.score?', '+scoreText(e.score):'')+', live on '+e.channel+', '+time(e.start)+' to '+time(e.end)+'. Open channel.');
         var art=node('div','zle-art');art.setAttribute('data-sport',e.kind);
-        var top=node('div','zle-top');top.appendChild(node('span','zle-live','Live'));art.appendChild(top);
+        var top=node('div','zle-top');top.appendChild(node('span','zle-live','Live'));if(e.favoriteTeam){var fav=node('span','zle-fav','★');fav.title='Favorite team';fav.setAttribute('aria-label','Favorite team');top.appendChild(fav);}art.appendChild(top);
         var media=node('div','zle-media'),choices=artworkChoices(e,e.artwork),choiceIndex=0;
         function showArtwork(){
           var choice=choices[choiceIndex++],attempt=choiceIndex;
@@ -318,7 +421,7 @@
           art.setAttribute('data-art-kind',choice.kind);
           if(choice.image || choice.kind==='program_image'){
             var photo=node('img','zle-event-image');photo.alt='';photo.loading='lazy';photo.decoding='async';photo.width=1280;photo.height=720;
-            photo.addEventListener('error',imageFailed,{once:true});photo.src=choice.image?artSrc(choice.image):programImageUrl(choice);media.appendChild(photo);
+            photo.addEventListener('error',imageFailed,{once:true});photo.addEventListener('load',function(){var r=photo.naturalWidth/photo.naturalHeight;art.classList.toggle('zle-logo-art',!(r>=1.6 && r<=1.95));},{once:true});photo.src=choice.image?artSrc(choice.image):programImageUrl(choice);media.appendChild(photo);
           }else if(choice.kind==='team_logos'){
             var pair=node('div','zle-team-logos');
             choice.logos.forEach(function(path,i){
@@ -332,10 +435,25 @@
           }
         }
         art.classList.add('zle-has-art');art.appendChild(media);showArtwork();
+
         link.appendChild(art);
-        link.appendChild(node('span','zle-title',e.name));
-        link.appendChild(node('span','zle-channel',e.channel+(e.number?' · Ch '+e.number:'')));
-        link.appendChild(node('span','zle-time',time(e.start)+' – '+time(e.end)));
+        if(e.score){
+          // Scores sit inside the card (zorofin.app mock) over the matchup art with a dark fade;
+          // the team-tinted gradient shows only when there is no matchup art.
+          var sc=e.score,a=Number(sc.awayScore),h=Number(sc.homeScore);link.classList.add('zle-scored');if(sc.final){link.classList.add('zle-final');top.removeChild(top.firstChild);}
+          var board=node('div','zle-board');board.setAttribute('aria-hidden','true');if(sc.tint)art.style.setProperty('--zle-tint',sc.tint);
+          [[sc.awayName || sc.away,sc.awayScore,a>h],[sc.homeName || sc.home,sc.homeScore,h>a]].forEach(function(t){
+            var r=node('div','t'+(t[2]?' zle-lead':''));r.appendChild(node('span','',t[0]));r.appendChild(node('span','',t[1]));board.appendChild(r);
+          });
+          art.appendChild(board);
+          var league=sc.league || e.competition || '';
+          link.appendChild(node('span','zle-status',(league?league+' · ':'')+(sc.final?(sc.detail || 'Final'):(sc.detail || 'Live'))));
+          link.appendChild(node('span','zle-channel',e.channel+(e.number?' · Ch '+e.number:'')));
+        }else{
+          link.appendChild(node('span','zle-title',e.name));
+          link.appendChild(node('span','zle-channel',e.channel+(e.number?' · Ch '+e.number:'')));
+          link.appendChild(node('span','zle-time',time(e.start)+' – '+time(e.end)));
+        }
         var progress=node('div','zle-progress');progress.setAttribute('aria-hidden','true');var fill=node('span');fill.style.width=Math.min(100,100*(now-e.start)/(e.end-e.start))+'%';progress.appendChild(fill);link.appendChild(progress);
         link.addEventListener('click',function(event){
           if(event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)return;
@@ -357,10 +475,10 @@
     }
     function refresh(force) {
       var current=clientIdentity();
-      if(current!==identity){identity=current;generation++;channels=[];pending=false;updated=0;success=0;failed=false;clear();}
+      if(current!==identity){identity=current;generation++;channels=[];scores=null;scoresUpdated=0;scoresMissingUntil=0;pending=false;updated=0;success=0;failed=false;clear();}
       clearTimeout(timer);timer=null;
       if(!identity || !homeHost()){clear();return;}
-      loadArtwork();
+      loadArtwork();loadScores();
       var events=render(), soon=TTL;
       events.forEach(function(e){soon=Math.min(soon,Math.max(1000,e.end-Date.now()+20));});
       timer=setTimeout(function(){refresh(false);},soon);
@@ -372,7 +490,7 @@
           if(epoch!==generation || source!==clientIdentity() || !homeHost())return;
           all=all.concat(result.Items || []);
           if(result.Items && result.Items.length && all.length<result.TotalRecordCount)return page();
-          channels=all;success=Date.now();loadArtwork();render();
+          channels=all;success=Date.now();loadArtwork();loadScores();render();
         });
       }
       Promise.resolve().then(page).catch(function(){if(epoch===generation){failed=true;render();}}).then(function(){if(epoch===generation)pending=false;});
@@ -383,5 +501,5 @@
     document.addEventListener('visibilitychange',function(){refresh(true);});
     new window.MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});schedule();
   }
-  return {eventFor:eventFor,select:select,cleanTitle:cleanTitle,logo:logo,artworkFor:artworkFor,artworkDetailsFor:artworkDetailsFor,artworkChoices:artworkChoices,sportGraphic:sportGraphic,mount:mount};
+  return {arrangeWithFeed:arrangeWithFeed,gameIndexFor:gameIndexFor,scoreFor:scoreFor,scoreText:scoreText,eventFor:eventFor,select:select,cleanTitle:cleanTitle,logo:logo,artworkFor:artworkFor,artworkDetailsFor:artworkDetailsFor,artworkChoices:artworkChoices,sportGraphic:sportGraphic,mount:mount};
 }));

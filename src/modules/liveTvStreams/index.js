@@ -15,9 +15,11 @@
 // This is advisory: it does not reserve a stream. Provider and tuner limits
 // stay authoritative.
 
+const path = require('path');
 const { httpUrl } = require('../../config');
 const { readSecret, requestJson } = require('../../lib/io');
 const { cleanText, jellyfinId } = require('../../lib/text');
+const { STREAM_ID, TOKEN, createLinePool, parseLines, poolToken, sameToken } = require('./pool');
 
 const ID = 'liveTvStreams';
 const VERSION = 1;
@@ -44,6 +46,11 @@ function settingsFrom(env, config) {
   const xtreamParts = [xtreamUrl, xtreamUser, xtreamPassword].filter(Boolean).length;
   if (xtreamParts > 0 && xtreamParts < 3) errors.push('ZOROFIN_STREAMS_XTREAM_URL, ZOROFIN_STREAMS_XTREAM_USERNAME and ZOROFIN_STREAMS_XTREAM_PASSWORD go together');
   if (!['admins', 'off'].includes(viewerNames)) errors.push('ZOROFIN_STREAMS_VIEWER_NAMES must be admins or off');
+  let lines = [];
+  try { lines = parseLines(readSecret(env, 'ZOROFIN_STREAMS_LINES')); }
+  catch (error) { errors.push(`ZOROFIN_STREAMS_LINES: ${error.message}`); }
+  const poolTokenValue = readSecret(env, 'ZOROFIN_STREAMS_POOL_TOKEN');
+  if (poolTokenValue && !TOKEN.test(poolTokenValue)) errors.push('ZOROFIN_STREAMS_POOL_TOKEN must be 32-128 letters, digits, - or _ (try openssl rand -hex 24)');
   if (errors.length) throw new Error(errors.join('; '));
   return {
     limit,
@@ -51,6 +58,8 @@ function settingsFrom(env, config) {
     xtream: xtreamParts === 3 ? { url: xtreamUrl, username: xtreamUser, password: xtreamPassword } : null,
     useProviderLimit: env.ZOROFIN_STREAMS_USE_PROVIDER_LIMIT !== '0',
     namesForAdmins: viewerNames === 'admins',
+    lines,
+    poolToken: poolTokenValue,
   };
 }
 
@@ -88,6 +97,11 @@ function createLiveTvStreams(config, deps = {}) {
   let programmeCache = { at: 0, key: '', byChannel: new Map() };
   let provider = { at: 0, value: null, error: null };
   let providerPending = null;
+  // Two or more logins: share them behind one stream address (see pool.js).
+  const pool = settings.lines && settings.lines.length > 1
+    ? createLinePool({ lines: settings.lines, request: deps.upstreamRequest, log })
+    : null;
+  const token = pool ? poolToken(settings.poolToken, path.join(config.dataDir || path.join(__dirname, '..', '..', '..', 'data'), ID), deps.fs) : '';
 
   async function jellyfin(pathAndQuery) {
     const response = await send(new URL(pathAndQuery, config.jellyfinUrl), { headers: auth, timeout: 8000 });
@@ -196,6 +210,8 @@ function createLiveTvStreams(config, deps = {}) {
   }
 
   function limitFor(providerValue) {
+    // Pooled logins: the limit is how many streams the pool can carry.
+    if (pool) return { limit: pool.capacity, source: 'lines' };
     if (settings.useProviderLimit && providerValue && providerValue.maxConnections > 0) {
       return { limit: providerValue.maxConnections, source: 'provider' };
     }
@@ -208,9 +224,11 @@ function createLiveTvStreams(config, deps = {}) {
     const deviceId = cleanText(query && query.get('deviceId'), 200);
     const requested = jellyfinId(query && query.get('channelId'));
     const inUseHere = snap.channels.length;
-    // Streams the provider counts that no Jellyfin viewer explains: another app
-    // on the same account, or a relay that hasn't closed yet.
-    const active = snap.provider ? snap.provider.activeConnections : null;
+    // Streams that no Jellyfin viewer explains: another app on the same
+    // account, a relay that hasn't closed yet, or a second browser tab (tabs
+    // share one Jellyfin device, so Jellyfin reports one session for both).
+    // With pooled logins the pool's own open lines are the exact count.
+    const active = pool ? pool.busy() : snap.provider ? snap.provider.activeConnections : null;
     const otherUse = active !== null && active > inUseHere ? active - inUseHere : 0;
     const inUse = inUseHere + otherUse;
     const free = Math.max(0, limit - inUse);
@@ -268,13 +286,16 @@ function createLiveTvStreams(config, deps = {}) {
       body.limitSource = source;
       body.provider = snap.provider ? { ...snap.provider } : (settings.xtream ? { error: provider.error || 'not checked yet' } : null);
       body.warnings = warnings(snap.provider);
+      // The path to put in the channel list (after this companion's address).
+      if (pool) body.lines = { ...pool.status(), path: `/v1/public/${ID}/${token}/line` };
     }
     return body;
   }
 
   function summary(limit, inUse, streams, otherUse) {
     const names = streams.map(s => s.channelName).filter(Boolean);
-    if (otherUse) names.push(otherUse === 1 ? 'another app' : `${otherUse} other apps`);
+    if (otherUse && pool) names.push(otherUse === 1 ? '1 more channel' : `${otherUse} more channels`);
+    else if (otherUse) names.push(otherUse === 1 ? 'another app' : `${otherUse} other apps`);
     const head = `${inUse} of ${plural(limit, 'Live TV stream')} in use`;
     return names.length ? `${head}: ${names.join(', ')}.` : `${head}.`;
   }
@@ -282,7 +303,7 @@ function createLiveTvStreams(config, deps = {}) {
   function warnings(providerValue) {
     const out = [];
     if (!providerValue) return out;
-    if (providerValue.maxConnections !== null && settings.limit > providerValue.maxConnections) {
+    if (!pool && providerValue.maxConnections !== null && settings.limit > providerValue.maxConnections) {
       out.push(`The provider allows ${plural(providerValue.maxConnections, 'stream')}, fewer than the ${settings.limit} set here.`);
     }
     if (providerValue.status && providerValue.status.toLowerCase() !== 'active') out.push(`The provider reports the account as ${providerValue.status}.`);
@@ -296,6 +317,20 @@ function createLiveTvStreams(config, deps = {}) {
   return {
     id: ID,
     capabilities: () => ({ [ID]: { version: VERSION, enabled: true } }),
+
+    // Threadfin (or Jellyfin) reads streams here, authorized by the token in
+    // the address: /v1/public/liveTvStreams/{token}/line/{streamId}
+    async handlePublic({ segments }) {
+      const [supplied, kind, file, ...rest] = segments;
+      const match = STREAM_ID.exec(file || '');
+      if (!pool || rest.length || kind !== 'line' || !match || !sameToken(supplied, token)) {
+        return { status: 404, body: { error: 'Not found' } };
+      }
+      return {
+        contentType: match[2] === 'm3u8' ? 'application/vnd.apple.mpegurl' : 'video/mp2t',
+        stream: res => pool.relay(match[1], match[2] || '', res),
+      };
+    },
 
     async handle({ method, segments, query, viewer }) {
       const route = `${method} ${segments.join('/')}`;

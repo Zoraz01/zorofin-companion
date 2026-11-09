@@ -314,9 +314,12 @@
             drawer.appendChild(link);
           });
         }
-        // Phone Profile page.
+        // Phone Profile page only: wide screens and TVs already reach these pages
+        // from the side menu and the account menu, so Settings stays settings.
+        var phone = root.innerWidth <= 599 && !doc.documentElement.classList.contains('layout-tv') && !doc.body.classList.contains('layout-tv');
         var profile = /^#\/mypreferencesmenu/.test(root.location.hash) && doc.querySelector('.libraryPage:not(.hide) .verticalSection, .page:not(.hide) .readOnlyContent');
-        if (profile && on.length && !profile.querySelector('[data-zoro-page]')) {
+        if (profile && !phone) Array.prototype.forEach.call(profile.querySelectorAll('.zx-profile-link'), function (a) { a.remove(); });
+        if (profile && phone && on.length && !profile.querySelector('[data-zoro-page]')) {
           on.forEach(function (p) {
             var a = make('a', 'listItem-border emby-button zx-profile-link'); a.href = '#/home?zorofin=' + p; a.dataset.zoroPage = p;
             var row = make('div', 'listItem'); var i = make('span', 'material-icons listItemIcon listItemIcon-transparent', PAGES[p].icon); i.setAttribute('aria-hidden', 'true');
@@ -339,7 +342,7 @@
     root.addEventListener('popstate', sync);
     doc.addEventListener('viewshow', schedule);
     doc.addEventListener('keydown', function (e) { if (state.el && (e.key === 'Escape' || e.keyCode === 461) && !doc.querySelector('.dialogContainer')) { e.preventDefault(); root.history.back(); } });
-    root.addEventListener('resize', function () { if (state.el) state.el.style.setProperty('--zx-top', headerBottom()); });
+    root.addEventListener('resize', function () { if (state.el) state.el.style.setProperty('--zx-top', headerBottom()); schedule(); });
     new MutationObserver(function (records) { if (records.some(function (r) { return r.addedNodes.length; })) schedule(); }).observe(doc.body, { childList: true, subtree: false });
     root.setTimeout(function () { sync(); schedule(); }, 800);
   }

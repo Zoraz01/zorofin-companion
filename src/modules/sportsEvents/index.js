@@ -17,9 +17,11 @@ const { decode, encode } = require('../liveTvGuide/xmltv');
 const { readPlaylist, renderPlaylist } = require('../liveTvSource/m3u');
 const { scanXmltv, stamp, xmltvTime } = require('../liveTvSource/guide');
 const { CANCELLED, parseScoreboard, visible } = require('./fixtures');
+const { createNetworkFinder } = require('./networks');
 const { matchChannel, normalized, teamMatches } = require('./matching');
 const { DEFAULT_LEAGUES, PACKS } = require('./packs');
 
+const STARTUP_RETRY_MS = 60 * 1000;
 const ID = 'sportsEvents';
 const VERSION = 1;
 const MINUTE = 60000;
@@ -74,6 +76,7 @@ function settingsFrom(env) {
     channelsUrl, guideUrl, token, timeZone, titleStyle, order,
     eventGroups: list(env.ZOROFIN_SPORTS_EVENT_GROUPS),
     networks: pairs(env.ZOROFIN_SPORTS_NETWORKS, 'ZOROFIN_SPORTS_NETWORKS', errors),
+    autoNetworks: env.ZOROFIN_SPORTS_AUTO_NETWORKS !== '0',
     aliases: Object.fromEntries(Object.entries(pairs(env.ZOROFIN_SPORTS_ALIASES, 'ZOROFIN_SPORTS_ALIASES', errors)).map(([key, value]) => [key, value])),
     favorites: list(env.ZOROFIN_SPORTS_FAVORITES),
     hideIdle: env.ZOROFIN_SPORTS_HIDE_IDLE !== '0',
@@ -134,6 +137,7 @@ function createSportsEvents(config, deps = {}) {
   let unmatched = [];
   let running = null;
   let timer = null;
+  let retry = null; // soon after a failed start, while nothing has been served yet
 
   function styleFor(game) {
     return settings.titleStyle === 'auto' ? PACKS[game.pack].style : settings.titleStyle;
@@ -232,11 +236,13 @@ function createSportsEvents(config, deps = {}) {
     // Network channels: only the broadcasters the operator mapped, and never
     // two games in one slot.
     const byName = new Map(kept.map(entry => [normalized(entry.name), entry]));
+    // Channels not already used as event slots can carry network games.
+    const findNetwork = settings.autoNetworks ? createNetworkFinder(kept.filter(entry => !managed.has(guideIdOf(entry)))) : () => null;
     for (const game of current) {
       if (game.completed || CANCELLED.test(game.status)) continue;
       for (const broadcaster of game.broadcasts) {
         const target = settings.networks[normalized(broadcaster)];
-        const entry = target && byName.get(normalized(target));
+        const entry = target ? byName.get(normalized(target)) : findNetwork(broadcaster);
         if (!entry) continue;
         const guideId = guideIdOf(entry);
         const slot = programme(guideId, game, ended[game.id]);
@@ -337,6 +343,12 @@ function createSportsEvents(config, deps = {}) {
       } catch (error) {
         status.lastError = String(error.message || error).slice(0, 240);
         log(`sports refresh failed: ${status.lastError}`);
+        // Its source (another module, Threadfin) may still be starting: try
+        // again in a minute rather than waiting a whole refresh interval.
+        if (timer && !retry && !fs.existsSync(guideFile)) {
+          retry = setTimeout(() => { retry = null; refresh(); }, STARTUP_RETRY_MS);
+          retry.unref();
+        }
       } finally {
         running = null;
       }
@@ -393,7 +405,7 @@ function createSportsEvents(config, deps = {}) {
 
   function serveFile(file, contentType) {
     if (!fs.existsSync(file)) return { status: 503, body: { error: 'not_ready' } };
-    return { status: 200, raw: fs.readFileSync(file), contentType };
+    return { status: 200, file, contentType };
   }
 
   return {
@@ -412,7 +424,10 @@ function createSportsEvents(config, deps = {}) {
       const route = `${method} ${segments.join('/')}`;
       // Any signed-in viewer: the games on now (or today, with ?window=today).
       if (route === 'GET live') {
-        return { status: 200, body: { games: liveNow(query && query.get('window') === 'today'), updatedAt: status.lastSuccessAt, spoilerFree: !settings.showScores } };
+        // leagues: ESPN paths of the leagues this server follows, so a client can
+        // tell a game left out by the settings from one this feed can't know.
+        const leagues = settings.leagues.map(id => PACKS[id] && PACKS[id].path).filter(Boolean);
+        return { status: 200, body: { games: liveNow(query && query.get('window') === 'today'), updatedAt: status.lastSuccessAt, spoilerFree: !settings.showScores, leagues, maxGames: settings.maxGames, order: settings.order } };
       }
       if (!viewer.admin) return { status: 403, body: { error: 'admin_only' } };
       if (route === 'GET status') return { status: 200, body: { ...status, refreshing: Boolean(running), leaguesOn: settings.leagues } };
@@ -448,7 +463,9 @@ function createSportsEvents(config, deps = {}) {
 
     stop() {
       if (timer) clearInterval(timer);
+      if (retry) clearTimeout(retry);
       timer = null;
+      retry = null;
     },
 
     refresh,

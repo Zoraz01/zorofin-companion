@@ -52,7 +52,7 @@
     '#zoroPlayer{position:fixed;inset:0;z-index:2;pointer-events:none;color:#fff;font-family:inherit;transition:opacity .25s ease;}',
     '#zoroPlayer.zp-hidden{opacity:0;}#zoroPlayer.zp-hidden *{pointer-events:none!important;}',
     '#zoroPlayer .zp-shade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.6),transparent 22%,transparent 62%,rgba(0,0,0,.75));}',
-    '#zoroPlayer button{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:999px;padding:0;}',
+    '#zoroPlayer button *{pointer-events:none;}#zoroPlayer button{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:999px;padding:0;}',
     '#zoroPlayer button:focus-visible{outline:3px solid #fff;outline-offset:2px;}',
     '#zoroPlayer button[disabled]{opacity:.35;cursor:default;}',
     '#zoroPlayer .material-icons{font-size:inherit;line-height:1;}',
@@ -75,6 +75,8 @@
     '.zp-live b{display:inline-flex;align-items:center;gap:6px;color:#3ddc84;font-weight:600;}',
     '.zp-live b::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;}',
     '#zoroPlayer.zp-is-live .zp-live{display:inline-flex;}#zoroPlayer.zp-is-live .zp-skip{display:none;}',
+    // A live channel with no guide times has nothing to show on a timeline.
+    '#zoroPlayer.zp-is-live.zp-no-times .zp-progress{display:none;}',
     '.zp-tools{display:flex;align-items:center;gap:8px;margin-left:auto;}',
     '.zp-tool{width:44px;height:44px;font-size:24px;}.zp-tool.hide{display:none!important;}',
     '.zp-menu{position:fixed;z-index:100001;min-width:200px;padding:8px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:var(--zoro-graphite,#101411);color:#f4f8f5;box-shadow:0 22px 70px rgba(0,0,0,.6);}',
@@ -93,6 +95,10 @@
     root.zorofinPlayerLoaded = true;
     var doc = root.document, html = doc.documentElement, ui = null, page = null, timer = null, menu = null, scrubbing = false;
     var sheetTrigger = null, closingSheet = null;
+    // Whether the item playing is a Live TV channel, from the server's session
+    // for this browser. Jellyfin 12 can give a transcoded channel a seek bar
+    // and no clock text, so the controls alone can't tell.
+    var liveItem = null, liveTitle = null, liveCheck = 0;
     // While the old Injector "Zorofin player options" still runs, it owns the
     // Escape and native-player handling below; don't do them twice.
     var optionsScript = function () { return !!root.zorofinPlayerOptionsLoaded; };
@@ -111,15 +117,45 @@
     function button(className, label, iconName, action) {
       var b = el('button', className); b.type = 'button'; b.title = label; b.setAttribute('aria-label', label);
       b.appendChild(icon(iconName));
-      b.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); action(b); });
+      actions.set(b, function () { action(b); });
       return b;
+    }
+    // Our buttons run from a window capture listener, before Jellyfin's. On
+    // Firefox and Edge, Jellyfin's video page cancels at document capture any
+    // click whose target doesn't contain the element it saw on pointerdown, and
+    // that swallowed every press on these controls. Handling them first, and
+    // stopping the event there, also keeps them from reaching Jellyfin's
+    // play/pause-on-video handler.
+    var actions = new WeakMap();
+    function runAction(event) {
+      var target = event.target, b = target && target.closest && target.closest('#zoroPlayer button, .zp-menu .zp-item');
+      var run = b && actions.get(b);
+      if (!run) return;
+      event.preventDefault(); event.stopPropagation();
+      if (b.disabled) return;
+      if (event.isTrusted) sheetTrigger = b;
+      if (menu && !menu.node.contains(b) && b !== menu.trigger) closeMenu(false);
+      run();
     }
     function native(selector) { return page && page.querySelector(selector); }
     function visible(node) { return !!node && !node.classList.contains('hide'); }
     // After playback ends Jellyfin's controls stay in the page for a moment, but
     // their handlers have no player any more and throw.
     function hasPlayer() { return !!doc.querySelector('.videoPlayerContainer video, video.htmlvideoplayer'); }
-    function press(selector) { var n = native(selector); if (n && !n.disabled && hasPlayer()) n.click(); }
+    // Clicking one of Jellyfin's own controls for the viewer. On Firefox and Edge
+    // Jellyfin drops a click unless its target contains the element of the last
+    // pointerdown it saw (window capture), so report a press on the control first.
+    function activate(node) {
+      var Pointer = root.PointerEvent, kinds = Pointer ? ['pointerdown', 'pointerup'] : ['mousedown', 'mouseup'];
+      kinds.forEach(function (kind) {
+        try {
+          node.dispatchEvent(Pointer ? new Pointer(kind, { bubbles: true, cancelable: true, pointerType: 'mouse', isPrimary: true })
+            : new root.MouseEvent(kind, { bubbles: true, cancelable: true, button: 0 }));
+        } catch (_) { /* old engines: the click below still works where nothing cancels it */ }
+      });
+      node.click();
+    }
+    function press(selector) { var n = native(selector); if (n && !n.disabled && hasPlayer()) activate(n); }
     function skipSeconds(kind) {
       // Jellyfin stores the viewer's skip lengths (ms) per user in localStorage.
       try {
@@ -142,14 +178,17 @@
       var gear = native('.btnVideoOsdSettings');
       if (!gear || !hasPlayer()) return;
       html.classList.add('zp-picking');
-      gear.click();
+      activate(gear);
       var started = Date.now();
       (function look() {
         var item = doc.querySelector('.actionSheet .actionSheetMenuItem[data-id="' + menuId + '"]');
-        if (item) { html.classList.remove('zp-picking'); item.click(); return; }
-        // Not offered (for example quality on a direct-play-only account):
-        // show Jellyfin's settings sheet as it is.
-        if (Date.now() - started > 1500) { html.classList.remove('zp-picking'); return; }
+        if (item) { html.classList.remove('zp-picking'); activate(item); return; }
+        // Jellyfin loads its settings menu on first use, which can take a few
+        // seconds over a slow connection. Once the sheet is up without the
+        // item (for example quality on a direct-play-only account), or after
+        // 6 s, show Jellyfin's settings sheet as it is.
+        var sheet = doc.querySelector('.actionSheet');
+        if ((sheet && Date.now() - started > 400) || Date.now() - started > 6000) { html.classList.remove('zp-picking'); return; }
         root.setTimeout(look, 30);
       }());
     }
@@ -170,7 +209,7 @@
       choices.forEach(function (choice) {
         var item = el('button', 'zp-item', choice.label);
         item.type = 'button'; item.setAttribute('role', 'menuitem');
-        item.addEventListener('click', function () { closeMenu(false); press(choice.selector); });
+        actions.set(item, function () { closeMenu(false); press(choice.selector); });
         node.appendChild(item);
       });
       doc.body.appendChild(node);
@@ -199,7 +238,7 @@
       var top = el('div', 'zp-top');
       top.appendChild(button('zp-back', 'Back', 'arrow_back_ios_new', function () {
         var back = doc.querySelector('.skinHeader .headerBackButton');
-        if (back) back.click(); else root.history.back();
+        if (back) activate(back); else root.history.back();
       }));
       var title = el('div', 'zp-title'); title.setAttribute('aria-live', 'polite'); top.appendChild(title);
       box.appendChild(top);
@@ -282,6 +321,18 @@
       }
     }
     function textOf(selector) { var n = native(selector); return n ? n.textContent : ''; }
+    function checkLiveItem(title) {
+      var api = root.ApiClient;
+      if (title === liveTitle && Date.now() - liveCheck < 15000) return;
+      liveTitle = title; liveCheck = Date.now();
+      if (!api || typeof api.getSessions !== 'function' || typeof api.deviceId !== 'function') return;
+      var asked = liveCheck;
+      Promise.resolve().then(function () { return api.getSessions({ deviceId: api.deviceId() }); }).then(function (sessions) {
+        if (asked !== liveCheck) return;
+        var item = sessions && sessions[0] && sessions[0].NowPlayingItem;
+        liveItem = item ? (item.Type === 'TvChannel' || item.Type === 'LiveTvChannel' || item.IsLive === true) : null;
+      }).catch(function () { /* unknown: fall back to the controls */ });
+    }
 
     // ---- sync from Jellyfin's controls ------------------------------------------
     function sync() {
@@ -296,6 +347,7 @@
       var titleNode = doc.querySelector('.skinHeader .pageTitle');
       var title = (titleNode && titleNode.textContent.trim()) || doc.title || '';
       if (ui.title.textContent !== title) ui.title.textContent = title;
+      checkLiveItem(title);
 
       var pauseIcon = native('.btnPause .material-icons'), paused = !!pauseIcon && pauseIcon.classList.contains('play_arrow');
       var playIcon = ui.play.firstChild, wanted = 'material-icons ' + (paused ? 'play_arrow' : 'pause');
@@ -310,8 +362,10 @@
       // Live TV with a guide entry: Jellyfin shows the programme's start and end.
       var start = native('.startTimeText'), end = native('.endTimeText');
       var program = visible(start) && visible(end) && !textOf('.osdPositionText').trim() && start.textContent.trim();
-      var channel = program || (!canSeek && !times(textOf('.osdPositionText'), textOf('.osdDurationText')));
+      var clock = times(textOf('.osdPositionText'), textOf('.osdDurationText'));
+      var channel = liveItem === true || program || (!canSeek && !clock);
       ui.box.classList.toggle('zp-is-live', !!channel);
+      ui.box.classList.toggle('zp-no-times', !program && !clock);
       ui.liveTimes.textContent = program ? start.textContent.trim() + ' – ' + end.textContent.trim() : '';
       if (!scrubbing) {
         var t = times(textOf('.osdPositionText'), textOf('.osdDurationText'));
@@ -349,7 +403,7 @@
       timer = null;
       if (page) page.removeEventListener('focusin', redirectFocus);
       if (ui) ui.box.remove();
-      ui = null; page = null;
+      ui = null; page = null; liveItem = null; liveTitle = null;
       html.classList.remove('zp-on', 'zp-picking', 'zp-controls');
     }
     function check() {
@@ -433,6 +487,7 @@
     }
 
     new root.MutationObserver(check).observe(doc.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    root.addEventListener('click', runAction, true);
     doc.addEventListener('click', rememberSheetTrigger, true);
     doc.addEventListener('keydown', escapeNativeSheet, true);
     root.addEventListener('hashchange', function () { sheetTrigger = null; check(); });

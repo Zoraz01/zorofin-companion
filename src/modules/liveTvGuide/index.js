@@ -16,6 +16,7 @@ const { fetchBuffer, mirrorImage, sportsDbCard, tvmazePoster } = require('./sour
 const { bestLogo, cleanChannelName, logoFiles, overrideFor, parseOverrides, rawUrl } = require('./logos');
 const { rewriteChannels, rewriteProgrammes } = require('./xmltv');
 
+const STARTUP_RETRY_MS = 60 * 1000;
 const ID = 'liveTvGuide';
 const VERSION = 1;
 const MAX_GUIDE_BYTES = 64 * 1024 * 1024;
@@ -84,6 +85,7 @@ function createLiveTvGuide(config, deps = {}) {
   const status = { lastRefreshAt: null, lastSuccessAt: null, lastError: null, programmes: 0, titled: 0, iconed: 0, logos: 0 };
   let running = null;
   let timer = null;
+  let retry = null; // soon after a failed start, while nothing has been served yet
 
   function artUrl(file) {
     return `${settings.publicUrl}v1/public/${ID}/${settings.token}/art/${file}`;
@@ -188,6 +190,12 @@ function createLiveTvGuide(config, deps = {}) {
       } catch (error) {
         status.lastError = String(error.message).slice(0, 240);
         log(`guide refresh failed, serving the last good guide: ${status.lastError}`);
+        // Its source (another module, Threadfin) may still be starting: try
+        // again in a minute rather than waiting a whole refresh interval.
+        if (timer && !retry && !fs.existsSync(guideFile)) {
+          retry = setTimeout(() => { retry = null; refresh(); }, STARTUP_RETRY_MS);
+          retry.unref();
+        }
       } finally {
         running = null;
       }
@@ -205,7 +213,7 @@ function createLiveTvGuide(config, deps = {}) {
       if (!sameToken(token, settings.token)) return { status: 404, body: { error: 'Not found' } };
       if (rest.length === 1 && rest[0] === 'guide.xml') {
         if (!fs.existsSync(guideFile)) return { status: 503, body: { error: 'guide_not_ready' } };
-        return { status: 200, raw: fs.readFileSync(guideFile), contentType: 'application/xml; charset=utf-8' };
+        return { status: 200, file: guideFile, contentType: 'application/xml; charset=utf-8' };
       }
       if (rest.length === 2 && rest[0] === 'art' && ART_FILE.test(rest[1])) {
         const file = path.join(artDir, rest[1]);
@@ -239,7 +247,9 @@ function createLiveTvGuide(config, deps = {}) {
 
     stop() {
       if (timer) clearInterval(timer);
+      if (retry) clearTimeout(retry);
       timer = null;
+      retry = null;
     },
 
     refresh,

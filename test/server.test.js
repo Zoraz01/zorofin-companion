@@ -132,3 +132,65 @@ test('private modules load from a directory and cannot replace built-ins', () =>
   assert.deepEqual(createRegistry(['eventGate'], {}, {}, available).ids(), ['eventGate']);
   assert.deepEqual(loadPrivateModules('').errors, []);
 });
+
+test('public file replies stream from disk with the right length', async () => {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zorofin-file-'));
+  const file = path.join(dir, 'guide.xml');
+  const text = `<tv>${'<programme/>'.repeat(50000)}</tv>\n`;
+  fs.writeFileSync(file, text);
+  const files = () => ({
+    id: 'files',
+    capabilities: () => ({ files: { version: 1, enabled: true } }),
+    async handle() { return { status: 404, body: {} }; },
+    async handlePublic({ segments }) {
+      if (segments[0] === 'guide.xml') return { status: 200, file, contentType: 'application/xml' };
+      return { status: 200, file: path.join(dir, 'missing.xml') };
+    },
+  });
+  const config = { bridgeSecret: SECRET };
+  const server = createServer({ config, registry: createRegistry(['files'], config, {}, { files }) });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const ok = await fetch(`${base}/v1/public/files/guide.xml`);
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get('content-type'), 'application/xml');
+    assert.equal(Number(ok.headers.get('content-length')), Buffer.byteLength(text));
+    assert.equal(await ok.text(), text);
+    assert.equal((await fetch(`${base}/v1/public/files/other`)).status, 404);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a HEAD on a public stream answers its type without opening it', async () => {
+  let opened = 0;
+  const streams = () => ({
+    id: 'streams',
+    capabilities: () => ({ streams: { version: 1, enabled: true } }),
+    async handle() { return { status: 404, body: {} }; },
+    async handlePublic() {
+      return { contentType: 'video/mp2t', stream: res => { opened += 1; res.writeHead(200, { 'Content-Type': 'video/mp2t' }); res.end('ts'); } };
+    },
+  });
+  const config = { bridgeSecret: SECRET };
+  const server = createServer({ config, registry: createRegistry(['streams'], config, {}, { streams }) });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const head = await fetch(`${base}/v1/public/streams/line/1`, { method: 'HEAD' });
+    assert.equal(head.status, 200);
+    assert.equal(head.headers.get('content-type'), 'video/mp2t');
+    assert.equal(opened, 0);
+    const get = await fetch(`${base}/v1/public/streams/line/1`);
+    assert.equal(await get.text(), 'ts');
+    assert.equal(opened, 1);
+    assert.equal((await fetch(`${base}/v1/public/streams/line/1`, { method: 'POST' })).status, 405);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
+});
