@@ -252,6 +252,73 @@ An email address is never taken from Seerr. It is used only after the viewer
 confirms a code sent to it. Turning off every channel also deletes that
 viewer's delivery history.
 
+## Module: liveTvSource
+
+Builds the channel list and guide Jellyfin (or Threadfin) reads, from an IPTV
+source the operator is entitled to use. No provider names or presets ship
+with it.
+
+- **Source:** an Xtream login (only the live catalogue is read through
+  `player_api.php`, never the VOD lists that make some `get.php` playlists
+  hundreds of MB) or any M3U address, read line by line so a huge playlist
+  never sits in memory. Gzipped files and redirects work.
+- **Groups to keep:** group names or how they start (`US|`, `UK| SPORTS`).
+  Empty keeps everything, up to **Most channels** (default 3000). Divider rows
+  (`#####`) are dropped.
+- **Event channel groups:** pay-per-view or per-game slots appear only while
+  something is on. The default rule shows a slot when its name has
+  yesterday's, today's or tomorrow's date (`Nov 6`, `06/11`, `2026-11-06`, ...)
+  or says Live/Now, and hides "No event", "Ended" and "Coming soon" slots. The
+  operator can switch to their own pattern, or show every slot.
+- **Guides in priority order:** the provider's own guide (`xmltv.php`), then
+  each backup XMLTV address. A channel the first guide leaves empty (no current
+  or upcoming listing) takes its listings from the next. Backup guides are
+  matched by guide id, then by channel name ("US| ESPN HD" matches "ESPN").
+  Each guide's last good copy is kept, so a provider guide outage
+  leaves the other guides and the old listings in place.
+- **Gaps:** optionally asks an Xtream provider per channel (`get_short_epg`,
+  up to 150 channels a refresh, cached 3 hours), then titles event slots that
+  still have nothing with the matchup in their name ("Bills vs Rams") for the
+  day.
+- **Fails open:** if the source can't be read or returns no channels, the
+  previous playlist and guide keep being served.
+
+| Variable | Notes |
+| --- | --- |
+| `ZOROFIN_LIVE_SOURCE_TYPE` | `xtream` (default) or `m3u` |
+| `ZOROFIN_LIVE_SOURCE_XTREAM_URL`, `_USERNAME`, `_PASSWORD` | The Xtream login (password may be a `_FILE`) |
+| `ZOROFIN_LIVE_SOURCE_STREAM_FORMAT` | `ts` (default, `/live/user/pass/id.ts`), `m3u8`, or `short` (`/user/pass/id`) |
+| `ZOROFIN_LIVE_SOURCE_M3U_URL` | Playlist address (secret; it usually holds a login) |
+| `ZOROFIN_LIVE_SOURCE_GROUPS` | Comma-separated group names or prefixes to keep |
+| `ZOROFIN_LIVE_SOURCE_EVENT_GROUPS` | Comma-separated event-slot groups |
+| `ZOROFIN_LIVE_SOURCE_EVENT_RULE` | `today` (default), `pattern` or `all` |
+| `ZOROFIN_LIVE_SOURCE_EVENT_PATTERN` | Regular expression for `pattern` |
+| `ZOROFIN_LIVE_SOURCE_MAX_CHANNELS` | Default 3000 |
+| `ZOROFIN_LIVE_SOURCE_PROVIDER_GUIDE` | `0` to skip the Xtream provider's guide |
+| `ZOROFIN_LIVE_SOURCE_BACKUP_GUIDES` | Comma-separated XMLTV addresses, in order of preference |
+| `ZOROFIN_LIVE_SOURCE_SHORT_GUIDE` | `1` to ask an Xtream provider per channel for missing listings |
+| `ZOROFIN_LIVE_SOURCE_MATCHUPS` | `0` to leave event slots without listings |
+| `ZOROFIN_LIVE_SOURCE_TOKEN` | Required. 32+ letters/digits; part of both addresses |
+| `ZOROFIN_LIVE_SOURCE_REFRESH_MINUTES` | Channel list, default 60 |
+| `ZOROFIN_LIVE_SOURCE_GUIDE_HOURS` | Guide downloads, default 6 |
+
+In Jellyfin (or Threadfin), use:
+- tuner (M3U): `http://zorofin-companion:9310/v1/public/liveTvSource/<token>/channels.m3u`
+- guide (XMLTV): `http://zorofin-companion:9310/v1/public/liveTvSource/<token>/guide.xml`
+
+The playlist holds the provider's stream addresses (with the login, like any
+Xtream M3U), so keep the token private and never publish the companion port.
+To add artwork, logos and matchup titles on top, point `liveTvGuide`'s guide
+source at the `guide.xml` address above and give Jellyfin `liveTvGuide`'s
+address instead. The simultaneous-stream limit is the separate
+`liveTvStreams` module.
+
+Admins (through `/Zorofin/Companion/liveTvSource/...`): `GET status` (channel
+and event counts, how each channel got its listings, each guide's last
+success or error), `GET groups` (every group in the source with its channel
+count, to pick from), `GET preview` (sample channels and the event slots that
+are on, with their matchups) and `POST refresh`.
+
 ## Module: liveTvGuide
 
 Serves the operator's XMLTV guide back to Jellyfin, improved:
@@ -270,8 +337,8 @@ Serves the operator's XMLTV guide back to Jellyfin, improved:
 
 Works with any XMLTV source: Threadfin, xTeVe, a tuner's guide or a listings
 service. If the source breaks, Jellyfin keeps getting the last good guide.
-Provider-specific rules (event-channel gating, pinned channel numbers, PPV
-slots) are deliberately not part of this module; add them as a private module.
+Event-channel gating and backup guides live in `liveTvSource`; a server's own
+pinned channel numbers belong in a private module.
 
 | Variable | Notes |
 | --- | --- |
@@ -349,6 +416,86 @@ Needs `ZOROFIN_JELLYFIN_URL` and `ZOROFIN_JELLYFIN_API_KEY`. To allow more
 than one stream, get a plan with more connections from your provider, set
 your tuner's limit (for example Threadfin's tuner count) to match, then set
 the limit here or let the companion read it from the provider.
+
+## Module: sportsEvents
+
+Real fixtures for the leagues the operator turns on, put on the channels that
+carry them.
+
+- **League packs** (data in `src/modules/sportsEvents/packs.js`, so a new
+  league is a new entry): NFL, NBA, MLB, NHL, MLS, WNBA; college football (FBS)
+  and men's/women's college basketball; Premier League, LaLiga, Serie A,
+  Bundesliga, Ligue 1; Champions League, Europa League, FA Cup; FIFA World Cup
+  (men's and women's), Euro and Copa América. Default: `nba, nfl, cfb, mlb,
+  nhl, epl, ucl, mls`, in that order of priority (like the apps' Home row).
+  Olympics (sessions rather than matches) is not built yet.
+- **Fixtures** come from ESPN's public scoreboard for the US Eastern today and
+  tomorrow (and yesterday before 5 AM, for late games), every 10 minutes,
+  behind one adapter. A failed league keeps its last good schedule.
+- **Event channels:** a channel in an event group, or any channel named like
+  "Lakers vs Celtics", is matched to exactly one fixture: both teams must
+  match (full name, short name, nickname, abbreviation or an alias), a league
+  word in the name ("NBA", "Premier League") limits the search, and a time in
+  the name ("@ Nov 6 7:30 PM", read in the operator's time zone) settles
+  doubleheaders. Anything ambiguous is left alone.
+- **Guide listings** from 30 minutes before the start until the final (plus 15
+  minutes), titled the way the Zorofin apps and the web Home row read them:
+  `NBA Basketball — Los Angeles Lakers at Boston Celtics`, then `Live: ...`
+  with the XMLTV live flag once it starts. US leagues read "Away at Home",
+  soccer "Home vs Away" (or one style for all). Listings never carry scores.
+- **Idle event channels** are hidden, and matched ones are renamed
+  "NBA — Lakers at Celtics" (both optional).
+- **Network channels** (opt-in, `ESPN=US| ESPN HD`): games a mapped broadcaster
+  carries get a listing on that channel. Two games in one slot are left out.
+- **Live now** for the apps: `GET /Zorofin/Companion/sportsEvents/live` (any
+  signed-in viewer) returns the games on now, live first, then by league
+  priority (or start time, or favorite teams first), with the sport kind the
+  apps use for their illustrations, team names, abbreviations and colours,
+  broadcasters, matched channels and a favorite flag. `?window=today` adds the
+  rest of the next 24 hours. Scores only when the operator turns them on.
+
+Setting it up with `liveTvSource`, the guide passes through each step:
+
+1. `liveTvSource` builds `channels.m3u` and `guide.xml`.
+2. `sportsEvents` reads both (`ZOROFIN_SPORTS_CHANNELS_URL`,
+   `ZOROFIN_SPORTS_GUIDE_URL`) and serves its own
+   `/v1/public/sportsEvents/<token>/channels.m3u` and `/guide.xml`.
+3. Optionally `liveTvGuide` takes the sports `guide.xml` as its source and adds
+   artwork and logos.
+4. Jellyfin's M3U tuner reads the sports `channels.m3u`; its XMLTV provider
+   reads the last guide in the chain.
+
+Without a channel list the module only serves Live now.
+
+| Variable | Notes |
+| --- | --- |
+| `ZOROFIN_SPORTS_LEAGUES` | Pack ids in priority order (see above) |
+| `ZOROFIN_SPORTS_CHANNELS_URL` | M3U to manage (secret). Empty: Live now only |
+| `ZOROFIN_SPORTS_GUIDE_URL` | XMLTV to add the games to (secret, optional) |
+| `ZOROFIN_SPORTS_EVENT_GROUPS` | Event-slot group names or prefixes |
+| `ZOROFIN_SPORTS_HIDE_IDLE`, `ZOROFIN_SPORTS_RENAME` | `0` to keep idle slots / original names |
+| `ZOROFIN_SPORTS_NETWORKS` | `Broadcaster=Channel name` pairs |
+| `ZOROFIN_SPORTS_TITLE_STYLE` | `auto` (default), `at` or `vs` |
+| `ZOROFIN_SPORTS_PREGAME_MINUTES`, `ZOROFIN_SPORTS_POSTGAME_MINUTES` | Default 30 and 15 |
+| `ZOROFIN_SPORTS_FAVORITES` | Team names, server-wide |
+| `ZOROFIN_SPORTS_ORDER` | `league` (default), `start` or `favorites` |
+| `ZOROFIN_SPORTS_MAX_GAMES` | Live now size, default 20 |
+| `ZOROFIN_SPORTS_SHOW_SCORES` | `1` to include scores in Live now |
+| `ZOROFIN_SPORTS_ALIASES` | Extra `Name=Schedule name` pairs |
+| `ZOROFIN_SPORTS_TIMEZONE` | Time zone of times in channel names, default `America/New_York` |
+| `ZOROFIN_SPORTS_TOKEN` | Needed with a channel list; part of both addresses |
+| `ZOROFIN_SPORTS_REFRESH_MINUTES` | Default 10 |
+
+Admins: `GET status` (each league's last fetch, games, live games, channels
+listed and matched), `GET preview` (today's fixtures per league with the
+channels they matched and the title they get, plus event channels that
+matched nothing: the Dashboard's Test view) and `POST refresh`.
+
+**Artwork.** The web pack's live events row now draws the Apple TV app's own
+sport illustrations (`apps/apple/Resources/tvOS/.../LiveSport-*.svg`, inlined by
+`tools/build-companion-web-ui.cjs`) instead of the web's line drawings, so the
+web and the apps show the same art. Team crests and game photos still come from
+**Team crests and game photos** in the web look.
 
 ## Module: recommendations
 

@@ -122,7 +122,7 @@ function normalize(option, value) {
 
 function displayValue(option, raw) {
   if (raw === undefined || raw === '') {
-    if (option.type === 'list') return [];
+    if (option.type === 'list') return Array.isArray(option.default) ? [...option.default] : [];
     return option.default !== undefined ? option.default : (option.type === 'boolean' ? false : '');
   }
   if (option.type === 'boolean') return /^(1|true|yes|on)$/i.test(String(raw).trim());

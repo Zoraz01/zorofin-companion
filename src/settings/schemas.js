@@ -10,6 +10,7 @@
 // holds its path).
 
 const { PRESETS } = require('../modules/webUi/palette');
+const { DEFAULT_LEAGUES, PACKS } = require('../modules/sportsEvents/packs');
 
 const SECTIONS = Object.freeze({
   connections: {
@@ -38,6 +39,32 @@ const SECTIONS = Object.freeze({
       { key: 'ntfyPublicUrl', env: 'ZOROFIN_NOTIFY_NTFY_PUBLIC_URL', type: 'url', label: 'ntfy address for viewers' },
       { key: 'ntfyToken', env: 'ZOROFIN_NOTIFY_NTFY_TOKEN', type: 'secret', label: 'ntfy publish token' },
       { key: 'ntfyAdminToken', env: 'ZOROFIN_NOTIFY_NTFY_ADMIN_TOKEN', type: 'secret', label: 'ntfy admin token', help: 'Lets the companion create a private ntfy login for each viewer.' },
+    ],
+  },
+  liveTvSource: {
+    kind: 'module',
+    title: 'Live TV channels',
+    description: 'Builds a small, current channel list and guide from your IPTV login or playlist. Keeps only the groups you pick, shows event channels only when something is on, and fills gaps from backup guides.',
+    options: [
+      { key: 'type', env: 'ZOROFIN_LIVE_SOURCE_TYPE', type: 'choice', label: 'Source', choices: [['xtream', 'Xtream login'], ['m3u', 'M3U playlist']], default: 'xtream' },
+      { key: 'xtreamUrl', env: 'ZOROFIN_LIVE_SOURCE_XTREAM_URL', type: 'url', label: 'Provider address', help: 'The part before /player_api.php.', placeholder: 'http://provider.example:8080', when: ['type', 'xtream'] },
+      { key: 'xtreamUsername', env: 'ZOROFIN_LIVE_SOURCE_XTREAM_USERNAME', type: 'text', label: 'Username', max: 200, when: ['type', 'xtream'] },
+      { key: 'xtreamPassword', env: 'ZOROFIN_LIVE_SOURCE_XTREAM_PASSWORD', type: 'secret', label: 'Password', when: ['type', 'xtream'] },
+      { key: 'streamFormat', env: 'ZOROFIN_LIVE_SOURCE_STREAM_FORMAT', type: 'choice', label: 'Stream type', choices: [['ts', 'MPEG-TS (most providers)'], ['m3u8', 'HLS'], ['short', 'Short links (/user/pass/id)']], default: 'ts', when: ['type', 'xtream'] },
+      { key: 'm3uUrl', env: 'ZOROFIN_LIVE_SOURCE_M3U_URL', type: 'secret', label: 'Playlist address', help: 'Kept like a password, because playlist addresses usually include your login.', when: ['type', 'm3u'] },
+      { key: 'groups', env: 'ZOROFIN_LIVE_SOURCE_GROUPS', type: 'list', label: 'Groups to keep', help: 'Group names or how they start, separated by commas, for example "US|, UK| SPORTS". Empty keeps every group (up to the channel limit).' },
+      { key: 'eventGroups', env: 'ZOROFIN_LIVE_SOURCE_EVENT_GROUPS', type: 'list', label: 'Event channel groups', help: 'Groups of pay-per-view or per-game slots. Their channels only appear when something is on.' },
+      { key: 'eventRule', env: 'ZOROFIN_LIVE_SOURCE_EVENT_RULE', type: 'choice', label: 'When an event channel is on', default: 'today',
+        choices: [['today', 'Its name has today\'s date, or says Live or Now'], ['pattern', 'Its name matches my pattern'], ['all', 'Always show them']] },
+      { key: 'eventPattern', env: 'ZOROFIN_LIVE_SOURCE_EVENT_PATTERN', type: 'text', label: 'Event pattern', help: 'A regular expression, for example "\\bvs\\b|LIVE".', max: 200, when: ['eventRule', 'pattern'] },
+      { key: 'maxChannels', env: 'ZOROFIN_LIVE_SOURCE_MAX_CHANNELS', type: 'number', label: 'Most channels', min: 10, max: 20000, default: 3000 },
+      { key: 'providerGuide', env: 'ZOROFIN_LIVE_SOURCE_PROVIDER_GUIDE', type: 'boolean', label: 'Use the provider\'s guide', default: true, when: ['type', 'xtream'] },
+      { key: 'backupGuides', env: 'ZOROFIN_LIVE_SOURCE_BACKUP_GUIDES', type: 'list', label: 'Backup guides (XMLTV)', help: 'Addresses in order of preference, separated by commas. A channel the first guide leaves empty gets its listings from the next. .gz guides work.' },
+      { key: 'shortGuide', env: 'ZOROFIN_LIVE_SOURCE_SHORT_GUIDE', type: 'boolean', label: 'Ask the provider per channel for missing listings', help: 'Up to 150 channels each refresh. Off by default because it adds requests to your provider.', default: false, when: ['type', 'xtream'] },
+      { key: 'matchups', env: 'ZOROFIN_LIVE_SOURCE_MATCHUPS', type: 'boolean', label: 'Title event channels with their matchup', help: 'An event channel named "Bills vs Rams" with no listings gets a "Bills vs Rams" listing for the day.', default: true },
+      { key: 'token', env: 'ZOROFIN_LIVE_SOURCE_TOKEN', type: 'secret', label: 'Link token', help: '32–128 letters or digits. Part of the channel and guide addresses you give Jellyfin.' },
+      { key: 'refreshMinutes', env: 'ZOROFIN_LIVE_SOURCE_REFRESH_MINUTES', type: 'number', label: 'Update channels every (minutes)', min: 15, max: 1440, default: 60 },
+      { key: 'guideHours', env: 'ZOROFIN_LIVE_SOURCE_GUIDE_HOURS', type: 'number', label: 'Download guides every (hours)', min: 1, max: 48, default: 6 },
     ],
   },
   liveTvGuide: {
@@ -69,6 +96,34 @@ const SECTIONS = Object.freeze({
       { key: 'useProviderLimit', env: 'ZOROFIN_STREAMS_USE_PROVIDER_LIMIT', type: 'boolean', label: "Use the provider's limit when known", default: true },
       { key: 'viewerNames', env: 'ZOROFIN_STREAMS_VIEWER_NAMES', type: 'choice', label: 'Who is watching', choices: [['admins', 'Shown to administrators'], ['off', 'Hidden from everyone']], default: 'admins', help: 'Viewers only ever see channel names, never other people.' },
       { key: 'staleSeconds', env: 'ZOROFIN_STREAMS_STALE_SECONDS', type: 'number', label: 'Forget a silent player after (seconds)', min: 30, max: 900, default: 90 },
+    ],
+  },
+  sportsEvents: {
+    kind: 'module',
+    title: 'Sports',
+    description: 'Real fixtures for the leagues you pick, matched to your event channels, with live game listings in the guide and a Live now list for the apps.',
+    options: [
+      { key: 'leagues', env: 'ZOROFIN_SPORTS_LEAGUES', type: 'list', label: 'Leagues', default: DEFAULT_LEAGUES,
+        help: `In order of priority for the Live now list. Available: ${Object.entries(PACKS).map(([id, pack]) => `${id} (${pack.label})`).join(', ')}.` },
+      { key: 'channelsUrl', env: 'ZOROFIN_SPORTS_CHANNELS_URL', type: 'secret', label: 'Channel list (M3U)', help: 'Your Live TV channel list, for example the Live TV channels address. Leave empty to only offer the Live now list.' },
+      { key: 'guideUrl', env: 'ZOROFIN_SPORTS_GUIDE_URL', type: 'secret', label: 'Guide to add games to (XMLTV)', help: 'Optional. Your current guide; game listings take the place of its listings on event channels.' },
+      { key: 'eventGroups', env: 'ZOROFIN_SPORTS_EVENT_GROUPS', type: 'list', label: 'Event channel groups', help: 'Groups whose channels carry one game at a time. Channels named like "Bills vs Rams" count as event channels anyway.' },
+      { key: 'hideIdle', env: 'ZOROFIN_SPORTS_HIDE_IDLE', type: 'boolean', label: 'Hide event channels with no game on', default: true },
+      { key: 'rename', env: 'ZOROFIN_SPORTS_RENAME', type: 'boolean', label: 'Name event channels after their game', help: 'For example "NBA — Lakers at Celtics".', default: true },
+      { key: 'networks', env: 'ZOROFIN_SPORTS_NETWORKS', type: 'list', label: 'Network channels', help: 'Optional. Broadcaster=your channel name, for example "ESPN=US| ESPN HD". Games those networks carry get listings on that channel. Two games at once on one channel are left out.' },
+      { key: 'titleStyle', env: 'ZOROFIN_SPORTS_TITLE_STYLE', type: 'choice', label: 'Game titles', default: 'auto',
+        choices: [['auto', 'Each league\'s custom (Away at Home, Home vs Away)'], ['at', 'Away at Home'], ['vs', 'Home vs Away']] },
+      { key: 'pregameMinutes', env: 'ZOROFIN_SPORTS_PREGAME_MINUTES', type: 'number', label: 'Show games before kickoff (minutes)', min: 0, max: 180, default: 30 },
+      { key: 'postgameMinutes', env: 'ZOROFIN_SPORTS_POSTGAME_MINUTES', type: 'number', label: 'Keep games after the final (minutes)', min: 0, max: 180, default: 15 },
+      { key: 'favorites', env: 'ZOROFIN_SPORTS_FAVORITES', type: 'list', label: 'Favorite teams', help: 'For the whole server, comma-separated. Marked in the Live now list.' },
+      { key: 'order', env: 'ZOROFIN_SPORTS_ORDER', type: 'choice', label: 'Live now order', default: 'league',
+        choices: [['league', 'League priority'], ['start', 'Start time'], ['favorites', 'Favorite teams first']] },
+      { key: 'maxGames', env: 'ZOROFIN_SPORTS_MAX_GAMES', type: 'number', label: 'Most games in Live now', min: 1, max: 100, default: 20 },
+      { key: 'showScores', env: 'ZOROFIN_SPORTS_SHOW_SCORES', type: 'boolean', label: 'Show scores', help: 'Off keeps Live now spoiler-free. Guide listings never carry scores.', default: false },
+      { key: 'aliases', env: 'ZOROFIN_SPORTS_ALIASES', type: 'list', label: 'Team name aliases', help: 'Name=Name used by the schedule, for example "Man Utd=Manchester United". Common ones are built in.' },
+      { key: 'timeZone', env: 'ZOROFIN_SPORTS_TIMEZONE', type: 'text', label: 'Time zone of channel names', help: 'For names like "@ Nov 3 7:30 PM".', placeholder: 'America/New_York', max: 64 },
+      { key: 'token', env: 'ZOROFIN_SPORTS_TOKEN', type: 'secret', label: 'Link token', help: '32–128 letters or digits. Part of the channel and guide addresses; needed with a channel list.' },
+      { key: 'refreshMinutes', env: 'ZOROFIN_SPORTS_REFRESH_MINUTES', type: 'number', label: 'Update every (minutes)', min: 5, max: 120, default: 10 },
     ],
   },
   recommendations: {
