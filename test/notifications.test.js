@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { createNotifications, settingsFrom } = require('../src/modules/notifications');
+const { createNotifications, jellyfinBase, settingsFrom } = require('../src/modules/notifications');
 const { sanitizeAvailabilityEvent } = require('../src/modules/notifications/delivery');
-const { renderAvailabilityEmail } = require('../src/modules/notifications/email');
+const { renderAvailabilityEmail, renderConfirmationEmail } = require('../src/modules/notifications/email');
 
 const VIEWER = '4f1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f';
 const OTHER = '0f1c2d3e4a5b6c7d8e9f0a1b2c3d4e5f';
@@ -228,4 +228,25 @@ test('test alerts go only to enabled channels and are limited', async () => {
   assert.equal(h.calls.ntfy[0].body.message, 'Request alerts from Example Home will appear here.');
   await h.call('POST', 'preferences/test', { channel: 'ntfy' });
   assert.equal((await h.call('POST', 'preferences/test', { channel: 'ntfy' })).status, 429);
+});
+
+test('the confirmation email links to the plugin page that confirms with one button', async () => {
+  const h = harness();
+  await h.call('POST', 'preferences/email', { address: 'viewer@example.com' });
+  const link = `https://watch.example/Zorofin/Alerts/ConfirmEmail?u=${VIEWER}&c=123456`;
+  assert.ok(h.calls.email[0].body.text.includes(`Confirm: ${link}`));
+  assert.ok(h.calls.email[0].body.html.includes(link.replace(/&/g, '&amp;')));
+  assert.match(h.calls.email[0].body.html, /Confirm email alerts/);
+
+  const plain = renderConfirmationEmail({ code: '123456', serverName: 'Home' });
+  assert.doesNotMatch(plain.html, /<a href/);
+  assert.doesNotMatch(plain.text, /Confirm:/);
+  assert.equal(renderConfirmationEmail({ code: '1', serverName: 'Home', confirmUrl: 'javascript:alert(1)' }).text.includes('Confirm:'), false);
+});
+
+test('the Jellyfin root comes from the address viewers open', () => {
+  assert.equal(jellyfinBase('https://a.example/'), 'https://a.example');
+  assert.equal(jellyfinBase('https://a.example/web/#/home'), 'https://a.example');
+  assert.equal(jellyfinBase('https://a.example/jellyfin/web/index.html'), 'https://a.example/jellyfin');
+  assert.equal(jellyfinBase(''), '');
 });

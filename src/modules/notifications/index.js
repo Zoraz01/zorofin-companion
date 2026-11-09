@@ -151,8 +151,13 @@ function createNotifications(config, deps = {}) {
     if (!settings.email) return reply(404, { error: 'email_unavailable' });
     const started = preferences.startEmail(userId, body && body.address);
     if (started.error) return reply(started.error === 'too_many_codes' ? 429 : 400, { error: started.error });
+    const base = jellyfinBase(settings.appUrl);
+    const confirmUrl = base
+      ? `${base}/Zorofin/Alerts/ConfirmEmail?u=${encodeURIComponent(userId)}&c=${encodeURIComponent(started.code)}`
+      : '';
     const message = renderConfirmationEmail({
       code: started.code,
+      confirmUrl,
       serverName: settings.serverName,
       logoSrc: settings.email.logoBase64 ? 'cid:zorofin-mark' : '',
     });
@@ -242,4 +247,16 @@ function createNotifications(config, deps = {}) {
   };
 }
 
-module.exports = { ID, createNotifications, settingsFrom };
+// The Jellyfin server's root from the address viewers open, which may point at
+// Jellyfin's web app (https://host/web/#/home) or a base path (https://host/jellyfin).
+function jellyfinBase(appUrl) {
+  if (!appUrl) return '';
+  try {
+    const url = new URL(appUrl);
+    url.hash = ''; url.search = '';
+    url.pathname = url.pathname.replace(/\/web(\/.*)?$/i, '').replace(/\/+$/, '');
+    return url.toString().replace(/\/+$/, '');
+  } catch (_) { return ''; }
+}
+
+module.exports = { ID, createNotifications, jellyfinBase, settingsFrom };

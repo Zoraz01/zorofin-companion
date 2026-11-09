@@ -16,14 +16,14 @@ function brandMark(logoSrc) {
                     <td bgcolor="#16a34a" style="width:42px;height:42px;border-radius:10px;color:#ffffff;${FONT};font-size:20px;font-weight:800;text-align:center;line-height:42px">Z</td>`;
 }
 
-function layout({ title, preheader, label, heading, bodyHtml, url, note, footer, logoSrc }) {
+function layout({ title, preheader, label, heading, bodyHtml, url, buttonLabel = 'Open Zorofin', note, footer, logoSrc }) {
   const watchUrl = safeHttpUrl(url);
   const escapedUrl = escapeHtml(watchUrl);
   const button = watchUrl ? `
                       <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:30px 0 8px">
                         <tr>
                           <td bgcolor="#42d779" style="border-radius:10px">
-                            <a href="${escapedUrl}" style="display:inline-block;padding:15px 24px;color:#041208;${FONT};font-size:16px;font-weight:700;line-height:20px;text-decoration:none;border-radius:10px">Open Zorofin&nbsp;&nbsp;&rarr;</a>
+                            <a href="${escapedUrl}" style="display:inline-block;padding:15px 24px;color:#041208;${FONT};font-size:16px;font-weight:700;line-height:20px;text-decoration:none;border-radius:10px">${escapeHtml(buttonLabel)}&nbsp;&nbsp;&rarr;</a>
                           </td>
                         </tr>
                       </table>` : '';
@@ -99,9 +99,13 @@ function renderAvailabilityEmail({ title, mediaType, serverName, appUrl, logoSrc
   return { subject, html, text };
 }
 
-function renderConfirmationEmail({ code, serverName, logoSrc = '' }) {
+// confirmUrl, when given, is a page on the viewer's Jellyfin server (the plugin's
+// /Zorofin/Alerts/ConfirmEmail) where one button confirms the address. It is for
+// apps that have no box to type the code into.
+function renderConfirmationEmail({ code, serverName, logoSrc = '', confirmUrl = '' }) {
   const server = cleanText(serverName, 80) || 'your server';
   const safeCode = String(code).replace(/[^0-9]/g, '').slice(0, 8);
+  const link = safeHttpUrl(confirmUrl) || '';
   const subject = `Your Zorofin code: ${safeCode}`;
   const note = 'If you did not ask for request alerts, ignore this email. Nothing will be sent to this address.';
   const footer = 'Zorofin request alerts';
@@ -110,14 +114,16 @@ function renderConfirmationEmail({ code, serverName, logoSrc = '' }) {
     preheader: `Enter ${safeCode} in Zorofin to get request alerts by email.`,
     label: 'CONFIRM EMAIL',
     heading: safeCode,
-    bodyHtml: `Enter this code in Zorofin to get alerts from ${escapeHtml(server)} when your requests are ready. It expires in 30 minutes.`,
-    url: '',
+    bodyHtml: `${link ? 'Confirm this address, or enter this code in Zorofin,' : 'Enter this code in Zorofin'} to get alerts from ${escapeHtml(server)} when your requests are ready. It expires in 30 minutes.`,
+    url: link,
+    buttonLabel: 'Confirm email alerts',
     note,
     footer,
     logoSrc,
   });
   const text = ['ZOROFIN', '', `Your code: ${safeCode}`,
-    `Enter this code in Zorofin to get alerts from ${server} when your requests are ready. It expires in 30 minutes.`,
+    `${link ? 'Confirm this address, or enter this code in Zorofin,' : 'Enter this code in Zorofin'} to get alerts from ${server} when your requests are ready. It expires in 30 minutes.`,
+    ...(link ? ['', `Confirm: ${link}`] : []),
     '', note].join('\n');
   return { subject, html, text };
 }
