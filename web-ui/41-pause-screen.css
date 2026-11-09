@@ -1,0 +1,16 @@
+/* Zorofin pause screen (zorofin-pause-screen.js). */
+.zoroPauseScreen { position:fixed; inset:0; z-index:100001; display:flex; align-items:flex-end; color:#f4f7f5; background:#0b0e0c; opacity:0; transition:opacity .45s ease; pointer-events:none; font-family:inherit; }
+.zoroPauseScreen.zps-on { opacity:1; }
+.zoroPauseScreen .zps-art { position:absolute; inset:0; background-size:cover; background-position:center; filter:saturate(1.05); }
+.zoroPauseScreen .zps-art::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg, #0b0e0cf2 0%, #0b0e0cc4 38%, #0b0e0c33 75%), linear-gradient(0deg, #0b0e0ccc 0%, transparent 45%); }
+.zoroPauseScreen .zps-info { position:relative; z-index:1; width:min(720px, 92vw); padding:0 0 clamp(32px, 8vh, 96px) clamp(24px, 6vw, 96px); display:flex; flex-direction:column; gap:10px; }
+.zoroPauseScreen .zps-logo { max-width:min(460px, 70vw); max-height:150px; object-fit:contain; object-position:left bottom; margin-bottom:8px; }
+.zoroPauseScreen .zps-title { margin:0 0 6px; font-size:clamp(30px, 4vw, 56px); font-weight:800; letter-spacing:-.02em; line-height:1.05; }
+.zoroPauseScreen .zps-episode { margin:0; font-size:clamp(17px, 1.6vw, 22px); font-weight:700; }
+.zoroPauseScreen .zps-facts, .zoroPauseScreen .zps-times { margin:0; color:#f4f7f5b3; font-weight:600; }
+.zoroPauseScreen .zps-plot { margin:4px 0; color:#f4f7f5d9; line-height:1.5; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
+.zoroPauseScreen .zps-progress { height:5px; border-radius:3px; background:#ffffff2e; overflow:hidden; margin-top:8px; }
+.zoroPauseScreen .zps-progress span { display:block; height:100%; background:#42d779; }
+.zoroPauseScreen .zps-paused { margin:6px 0 0; font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:#f4f7f580; font-weight:700; }
+@media (max-width: 700px) { .zoroPauseScreen .zps-art::after { background:linear-gradient(0deg, #0b0e0cf5 0%, #0b0e0cb3 55%, #0b0e0c4d 100%); } .zoroPauseScreen .zps-plot { -webkit-line-clamp:3; } }
+@media (prefers-reduced-motion: reduce) { .zoroPauseScreen { transition:none; } }

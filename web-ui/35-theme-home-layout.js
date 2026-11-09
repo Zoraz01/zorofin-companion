@@ -105,7 +105,7 @@
     function isContinue(row){return row.matches('.ContinueWatchingNextUp,.ContinueWatching,.resumeSection');}
     function isRequests(row){return row.matches('.MyJellyseerrRequests')||row.id==='zoroHomeRow-requests-ready';}
     function isMixed(row){return row.id==='zoroCollections'||(/^zoroHomeRow-/.test(row.id)&&row.id!=='zoroHomeRow-requests-ready');}
-    function ours(row){return row.id==='zoroLiveEvents'||row.id==='zoroCollections'||/^zoroHomeRow-/.test(row.id);}
+    function ours(row){return row.id==='zoroLiveEvents'||row.id==='zoroCollections'||/^zoroHome(?:Row|Shelf)-/.test(row.id);}
     function slotFor(row){if(!(row.id in mixSlots))mixSlots[row.id]=Math.floor(Math.random()*(MIX_SPREAD+1));return mixSlots[row.id];}
     function arrange(container){
       var rows=Array.prototype.slice.call(container.children).filter(function(row){return row.classList.contains('verticalSection') && row.id!=='hssLoadingIndicator';});
@@ -125,7 +125,9 @@
       ordered.forEach(function(row,index){if(row.style.order!==String(index+1))row.style.order=String(index+1);});
       // Jellyfin disconnect callbacks destroy native item renderer functions.
       // Native rows already follow configured order: only move our plain rows
-      // among them, preserving native elements, handlers and keyboard traversal.
+      // (including the plugin's library shelves) among them, preserving native
+      // elements, handlers and keyboard traversal. Page order then matches the
+      // visual order for screen readers and checks that read the page.
       var anchor=null;
       for(var i=ordered.length-1;i>=0;i--){
         var row=ordered[i];

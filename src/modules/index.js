@@ -23,6 +23,7 @@ const MODULE_ID = /^[a-z][a-zA-Z0-9]{0,31}$/;
 const BUILT_IN = Object.freeze({
   notifications: (config, deps) => require('./notifications').createNotifications(config, deps),
   liveTvGuide: (config, deps) => require('./liveTvGuide').createLiveTvGuide(config, deps),
+  liveTvStreams: (config, deps) => require('./liveTvStreams').createLiveTvStreams(config, deps),
   recommendations: (config, deps) => require('./recommendations').createRecommendations(config, deps),
   webUi: (config, deps) => require('./webUi').createWebUi(config, deps),
 });

@@ -83,6 +83,8 @@ test('renders every plugin row and hides the native sections', { skip: !playwrig
       await page.addScriptTag({ path: path.join(PACK, '35-theme-home-layout.js') });
       await page.addScriptTag({ path: path.join(PACK, '35-theme-home-plugin.js') });
       await page.locator('#zoroHomeRow-short-movies').waitFor();
+      // Jellyfin Enhanced's hidden-content filter hides a "Continue Watching" row with no .card elements.
+      await page.evaluate(() => { document.getElementById('zoroHomeRow-continue-watching').style.display = 'none'; });
       await page.waitForTimeout(400);
       if (process.env.PLUGIN_HOME_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.PLUGIN_HOME_SCREENSHOTS, 'plugin-home-' + width + '.png'), fullPage: true });
 
@@ -94,6 +96,9 @@ test('renders every plugin row and hides the native sections', { skip: !playwrig
       assert.deepEqual([...visible].sort(), ['4K / HDR showcase', 'Collections', 'Continue Watching', 'Favorites', 'My requests', 'Recently added movies', 'Watch in 90 minutes'],
         'native My Media, Continue Watching and Live TV give way; collections stay');
       assert.ok(visible.indexOf('Recently added movies') < visible.indexOf('Favorites'), 'library shelves keep their order');
+      const pageOrder = await page.evaluate(() => [...document.querySelectorAll('#homeTab .sections > *')]
+        .filter(e => getComputedStyle(e).display !== 'none').map(e => e.querySelector('h2').textContent));
+      assert.deepEqual(pageOrder, visible, 'page order matches what the viewer sees');
       assert.equal(await page.locator('#zoroHomeRow-continue-watching').getAttribute('class'), 'zoroBrowseRow verticalSection zoroHomeRow ContinueWatchingNextUp');
       assert.equal(await page.locator('#zoroHomeRow-continue-watching .zoroBrowseMeta').textContent(), 'S1 · E2 · Pilot');
       assert.equal(await page.locator('#zoroHomeRow-continue-watching .zph-progress > span').getAttribute('style'), 'width: 25%;');

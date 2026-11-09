@@ -186,3 +186,36 @@ test('xmltv rewriting decodes entities and leaves unknown blocks alone', async (
   const xml = '<tv><programme channel="c" start="1"><desc>no title</desc></programme></tv>';
   assert.equal(await rewriteProgrammes(xml, async () => ({ title: 'x', icon: 'y' })), xml);
 });
+
+test('operator logo rules fix misses, replace wrong logos and turn one off', async () => {
+  const guide = `<?xml version="1.0"?>
+<tv>
+  <channel id="a"><display-name>US| NBC 4 Washington HD</display-name></channel>
+  <channel id="b"><display-name>Sports 1</display-name><icon src="http://old.example/wrong.png" /></channel>
+  <channel id="c"><display-name>ESPN</display-name></channel>
+  <channel id="d"><display-name>Local Access</display-name></channel>
+</tv>
+`;
+  const { rules } = require('../src/modules/liveTvGuide/logos').parseOverrides([
+    'NBC 4 Washington=sports-1-uk.png', 'Sports 1=https://img.example/sports.png', 'Local Access=none',
+  ]);
+  const h = harness({ guide, settings: { channelLogos: true, tvmaze: false, sportsDbKey: '', logoOverrides: rules } });
+  await h.module.refresh();
+  const xml = await guideText(h.module);
+  assert.ok(h.calls.some(url => url.endsWith('/countries/united-kingdom/sports-1-uk.png')), 'a named file from another country');
+  assert.ok(h.calls.includes('https://img.example/sports.png'));
+  assert.doesNotMatch(xml, /old\.example/, 'the rule replaces the guide\'s logo');
+  assert.match(xml, /<channel id="c"><display-name>ESPN<\/display-name>\s*<icon /, 'fuzzy match still fills gaps');
+  assert.match(xml, /<channel id="d"><display-name>Local Access<\/display-name><\/channel>/);
+  assert.equal(h.module.status.logos, 3);
+});
+
+test('logo rules are checked when read from settings', () => {
+  const { parseOverrides, overrideFor } = require('../src/modules/liveTvGuide/logos');
+  const { rules, errors } = parseOverrides(['NBC=nbc-us.png', 'NBC 4 Washington=nbc-4-washington-us.png', 'Bad=http://plain.example/x.png', 'nothing', 'X=../etc.png']);
+  assert.deepEqual(errors, ['Bad=http://plain.example/x.png', 'nothing', 'X=../etc.png']);
+  assert.equal(overrideFor('US| NBC 4 Washington FHD', rules).logo, 'nbc-4-washington-us.png', 'longest rule wins');
+  assert.equal(overrideFor('NBC East', rules).logo, 'nbc-us.png');
+  assert.equal(overrideFor('NBCSN', rules), null, 'whole words only');
+  assert.throws(() => settingsFrom({ ZOROFIN_GUIDE_SOURCE_URL: 'http://g/x.xml', ZOROFIN_GUIDE_TOKEN: TOKEN, ZOROFIN_GUIDE_LOGO_OVERRIDES: 'oops' }), /LOGO_OVERRIDES/);
+});

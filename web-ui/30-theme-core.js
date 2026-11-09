@@ -304,7 +304,7 @@
 /* Zorofin browsing shell. Native pages, cards, settings and playback stay owned by Jellyfin. */
 (function initialize(root) {
   'use strict';
-  var VERSION = '1.6.0';
+  var VERSION = '1.7.0';
   var DESTINATIONS = [
     {key:'home', label:'Home', icon:'home', href:'#/home'},
     {key:'search', label:'Search', icon:'search', href:'#/search'},
@@ -581,8 +581,64 @@
     var logout=host.querySelector('.btnLogout,#logout,[data-action=logout]');if(logout&&host.lastElementChild!==logout)host.appendChild(logout);
     if(root.ZorofinWatchTogether)root.ZorofinWatchTogether.mount(host);
   }
+  // Notifications, like the iOS app's inbox: the server's message, requests
+  // that are ready to watch, then support replies. Rows are marked read once
+  // they have been on screen for a moment; read rows stay put while the panel
+  // is open and move under "Hidden" the next time it opens.
+  var inbox={key:'',at:0,pending:null,data:null,noReplies:false};
+  function viewer(){try{var c=root.ApiClient;return c&&c.getCurrentUserId()?String(c.serverId())+':'+String(c.getCurrentUserId()):'';}catch(_){return '';}}
+  function saved(name,fallback){try{var v=JSON.parse(root.localStorage.getItem('zorofin-notifications:'+name+':'+viewer())||'null');return v==null?fallback:v;}catch(_){return fallback;}}
+  function save(name,value){try{root.localStorage.setItem('zorofin-notifications:'+name+':'+viewer(),JSON.stringify(value));}catch(_){/* private mode */}}
+  function token(){try{return root.ApiClient.accessToken()||'';}catch(_){return '';}}
+  function headers(){var t=token();return {'X-Jellyfin-Token':t,Authorization:'MediaBrowser Token="'+t+'"'};}
+  function serverUrl(p){var c=root.ApiClient;return c&&typeof c.getUrl==='function'?c.getUrl(p):'/'+p;}
+  // Requests come from the Zorofin plugin; the reference server's older Requests proxy has no ready list.
+  function requestsOn(){return !html.classList.contains('zorofin-off-requests')&&Boolean(root.ZorofinWeb||root.ZorofinRequestsSource==='plugin');}
+  function getJson(url,signal){return root.fetch(url,{headers:headers(),signal:signal,cache:'no-store',redirect:'error'}).then(function(r){if(r.status===404)return null;if(!r.ok)throw Error(String(r.status));return r.json();});}
+  function loadInbox(force){
+    var key=identity();if(!key)return Promise.resolve(null);
+    if(key!==inbox.key){inbox={key:key,at:0,pending:null,data:null,noReplies:false};}
+    if(!force&&inbox.data&&Date.now()-inbox.at<120000)return Promise.resolve(inbox.data);
+    if(inbox.pending)return inbox.pending;
+    var messages=root.ZorofinServerMessages,controller=new AbortController(),timer=root.setTimeout(function(){controller.abort();},10000);
+    var promise=Promise.all([
+      messages?messages.current(force).catch(function(){return null;}):null,
+      inbox.noReplies?{notifications:[]}:getJson('/support/notifications',controller.signal).then(function(d){if(d===null){inbox.noReplies=true;return {notifications:[]};}return d;},function(){return false;}),
+      requestsOn()?getJson(serverUrl('Zorofin/Requests/activity?userOnly=true&take=50&skip=0&filter=available'),controller.signal).catch(function(){return false;}):null
+    ]).then(function(r){
+      if(key!==identity())return null;
+      var replies=r[1]&&Array.isArray(r[1].notifications)?r[1].notifications.filter(function(n){return n&&n.message;}):[];
+      var ready=r[2]&&Array.isArray(r[2].requests)?r[2].requests.filter(function(q){return q&&q.id>0&&q.tmdbId>0&&q.title&&q.mediaStatus==='Available'&&[2,5].indexOf(q.requestStatus)>=0;}):[];
+      // The first visit starts from a clean slate instead of listing every past request as new.
+      var read=saved('requests',null);
+      if(r[2]&&!read){read=ready.map(function(q){return q.id;});save('requests',read);}
+      inbox.data={message:r[0]||null,replies:replies,requests:ready,readRequests:read||[],failed:r[1]===false||r[2]===false};inbox.at=Date.now();badge();return inbox.data;
+    }).finally(function(){root.clearTimeout(timer);inbox.pending=null;});
+    inbox.pending=promise;return promise;
+  }
+  // The count is read a few seconds after the page settles, never during startup, then every two minutes at most.
+  var inboxTimer=null;
+  function scheduleInbox(){
+    if(inboxTimer||(inbox.data&&inbox.key===identity()&&Date.now()-inbox.at<120000))return;
+    inboxTimer=root.setTimeout(function(){inboxTimer=null;if(api.active&&!doc.hidden)loadInbox(false).catch(function(){});},inbox.data&&inbox.key===identity()?0:4000);
+  }
+  function unreadCount(){
+    var d=inbox.data;if(!d||inbox.key!==identity())return 0;
+    return (d.message&&!d.message.dismissed?1:0)+d.replies.length+d.requests.filter(function(q){return d.readRequests.indexOf(q.id)<0;}).length;
+  }
+  // A green count on the bell, like the apps, instead of a plain dot.
+  function badge(){
+    var n=unreadCount(),text=n>99?'99+':String(n);
+    doc.querySelectorAll('.zoroHomeAction[data-home-action=Notifications],[data-zoro-notifications]').forEach(function(b){
+      if(n){if(b.dataset.zoroUnread!==text)b.dataset.zoroUnread=text;}else if(b.hasAttribute('data-zoro-unread'))b.removeAttribute('data-zoro-unread');
+      var label=n?'Notifications, '+n+' unread':'Notifications';if(b.matches('.zoroHomeAction')&&b.getAttribute('aria-label')!==label)b.setAttribute('aria-label',label);
+    });
+  }
+  // zorofin-server-messages.js may load after the first count; take its message when it arrives.
+  root.addEventListener('zorofin:server-message',function(){var m=root.ZorofinServerMessages,key=inbox.key;if(inbox.data&&m)m.current(false).then(function(news){if(inbox.data&&inbox.key===key){inbox.data.message=news;badge();}},function(){});});
   function closeNotifications() {
     if(state.controller)state.controller.abort();state.controller=null;
+    if(state.notificationSeen){state.notificationSeen.disconnect();state.notificationSeen=null;}
     if(state.notification){state.notification.remove();state.notification=null;}
     if(state.notificationPlace){root.removeEventListener('resize',state.notificationPlace);state.notificationPlace=null;}
     if(state.notificationInert){state.notificationInert.forEach(function(x){x[0].inert=x[1];});state.notificationInert=null;}
@@ -595,18 +651,19 @@
     var content=make('div','zoroNotificationContent');content.setAttribute('aria-live','polite');
     function message(text,symbol){content.replaceChildren();var empty=make('div','zoroNotificationEmpty');empty.append(icon(symbol),make('p','',text));content.appendChild(empty);}
     message('Loading…','notifications_none');panel.appendChild(content);
-    // Like the Apple TV app: a panel on the right, hanging from the bell with a small pointer.
+    // Like the apps: a panel hanging from the bell with a small pointer.
     var pointer=make('div','zoroNotificationPointer');pointer.setAttribute('aria-hidden','true');
     backdrop.append(pointer,panel);doc.body.appendChild(backdrop);state.notification=backdrop;
     function place(){
-      var vw=doc.documentElement.clientWidth||root.innerWidth,vh=root.innerHeight,big=tv(),gutter=vw<600?12:big?48:24;
-      var width=Math.min(big?760:vw<600?420:560,vw-gutter*2),r=trigger&&trigger.isConnected?trigger.getBoundingClientRect():null;
+      var vw=doc.documentElement.clientWidth||root.innerWidth,vh=root.innerHeight,big=tv(),phone=vw<600,gutter=phone?12:big?48:24;
+      // The iPhone app's popover is 360 by 500 points.
+      var width=Math.min(big?760:phone?360:560,vw-gutter*2),r=trigger&&trigger.isConnected?trigger.getBoundingClientRect():null;
       var anchored=Boolean(r&&r.width&&r.height&&r.bottom>0&&r.bottom<vh*0.4&&r.left<vw&&r.right>0);
       var header=state.header&&state.header.getBoundingClientRect(),top=anchored?r.bottom+14:Math.max(gutter,header?header.bottom+12:gutter);
       // Always on the right edge; the pointer shows only when the bell sits above the panel.
       var left=vw-width-gutter;if(anchored&&(r.left+r.width/2<left+28||r.left+r.width/2>left+width-28))anchored=false;
       backdrop.style.setProperty('--zoro-pop-top',Math.round(top)+'px');backdrop.style.setProperty('--zoro-pop-left',Math.round(left)+'px');
-      backdrop.style.setProperty('--zoro-pop-width',Math.round(width)+'px');backdrop.style.setProperty('--zoro-pop-height',Math.round(Math.max(240,Math.min(big?820:650,vh-top-gutter)))+'px');
+      backdrop.style.setProperty('--zoro-pop-width',Math.round(width)+'px');backdrop.style.setProperty('--zoro-pop-height',Math.round(Math.max(240,Math.min(big?820:phone?500:650,vh-top-gutter)))+'px');
       pointer.hidden=!anchored;if(anchored)backdrop.style.setProperty('--zoro-pop-pointer',Math.round(Math.min(Math.max(r.left+r.width/2,left+28),left+width-28))+'px');
       panel.style.transformOrigin=Math.round(anchored?r.left+r.width/2-left:width)+'px 0';
     }
@@ -614,53 +671,84 @@
     state.notificationInert=[state.nav,doc.querySelector('.mainAnimatedPages'),state.header].filter(Boolean).map(function(e){var old=e.inert;e.inert=true;return[e,old];});
     close.focus();backdrop.addEventListener('click',function(e){if(e.target===backdrop)closeNotifications();});
     var controller=new AbortController(),key=identity();state.controller=controller;
-    var timeout=root.setTimeout(function(){controller.abort();},10000);
-    // The server's message (zorofin-server-messages.js) comes first, then support replies.
-    // A server without the reference server's support inbox answers 404, which just means no replies.
-    var messages=root.ZorofinServerMessages;
-    function caughtUp(){
-      if(content.querySelector('.zoroNotificationItem'))return;
-      var note=content.querySelector('.zoroNotificationNote'),empty=make('div','zoroNotificationCaughtUp');empty.append(make('p','zoroNotificationCaughtUpTitle','You’re all caught up'),make('p','','New updates will appear here.'));
-      content.replaceChildren(empty);if(note)content.appendChild(note);
-    }
+    var messages=root.ZorofinServerMessages,data=await loadInbox(true).catch(function(){return null;});
+    if(key!==identity()||state.notification!==backdrop)return;
+    if(!data){message('Notifications are unavailable.','error_outline');var again=make('button','zoroNotificationRead focusable','Try again');again.type='button';again.addEventListener('click',function(){notifications(trigger);});content.appendChild(again);return;}
+    content.replaceChildren();
+    // A row counts as seen once most of it has been in view for just under a second.
+    var timers=new Map(),seenAction=new Map();
+    var seen=typeof root.IntersectionObserver==='function'?new root.IntersectionObserver(function(entries){entries.forEach(function(entry){
+      var row=entry.target;
+      if(entry.intersectionRatio>=0.6&&!timers.has(row))timers.set(row,root.setTimeout(function(){timers.delete(row);seen.unobserve(row);var act=seenAction.get(row);seenAction.delete(row);if(act&&state.notification===backdrop&&key===identity())act();},900));
+      else if(entry.intersectionRatio<0.6&&timers.has(row)){root.clearTimeout(timers.get(row));timers.delete(row);}
+    });},{root:content,threshold:[0,0.6]}):null;
+    state.notificationSeen={disconnect:function(){if(seen)seen.disconnect();timers.forEach(function(t){root.clearTimeout(t);});timers.clear();}};
+    function whenSeen(row,act){if(!seen)return;seenAction.set(row,act);seen.observe(row);}
     function kind(symbol,text){var label=make('div','zoroNotificationKind');label.append(icon(symbol),make('span','',text));return label;}
-    try {
-      var results=await Promise.all([
-        messages?messages.current(true).catch(function(){return null;}):null,
-        root.fetch('/support/notifications',{headers:{'X-Jellyfin-Token':root.ApiClient.accessToken()},signal:controller.signal,cache:'no-store',redirect:'error'}).then(function(r){
-          if(r.status===404)return {notifications:[]};if(!r.ok)throw Error('Notifications are unavailable.');return r.json();
-        }).catch(function(){return null;})
-      ]);
-      if(key!==identity()||state.notification!==backdrop)return;
-      var news=results[0],data=results[1];
-      if(!data&&!(news&&!news.dismissed))throw Error('Notifications are unavailable.');
-      content.replaceChildren();
-      if(news&&!news.dismissed){
-        var item=make('article','zoroNotificationItem zoroServerMessage'),top=make('div','zoroNotificationItemTop');item.dataset.type=news.type;
-        top.appendChild(make('h3','',news.title));item.append(kind(news.type==='maintenance'||news.type==='warning'?'campaign':'auto_awesome','Server message'),top,make('p','',news.message));
-        var acts=make('div','zoroNotificationActions');
-        if(news.action){var go=make('a','zoroNotificationAction focusable',news.action.label);go.href=news.action.href;if(/^https:/i.test(go.href)){go.target='_blank';go.rel='noopener noreferrer';}go.addEventListener('click',function(){if(!/^https:/i.test(go.href))closeNotifications();});acts.appendChild(go);}
-        if(news.dismissible){var done=make('button','zoroNotificationRead focusable');done.type='button';done.append(icon('check'),make('span','','Mark read'));done.addEventListener('click',function(){
-          if(key!==identity())return;messages.dismiss(news.id);item.remove();caughtUp();close.focus();
-        });acts.appendChild(done);}
-        if(acts.children.length)item.appendChild(acts);
-        content.appendChild(item);
-      }
-      var items=data&&Array.isArray(data.notifications)?data.notifications:[];
-      items.forEach(function(n){
-        var article=make('article','zoroNotificationItem zoroSupportReply'),heading=make('div','zoroNotificationItemTop'),body=make('p','zoroNotificationBody',n.message||'');heading.appendChild(make('h3','',n.affectedMedia||n.issueType||'Support update'));article.append(kind('support_agent','Support reply'),heading,body);
-        // Long replies open in place, as on Apple TV.
-        if(String(n.message||'').length>160){var more=make('button','zoroNotificationMore focusable','Show more');more.type='button';more.setAttribute('aria-expanded','false');more.addEventListener('click',function(){var open=article.classList.toggle('expanded');more.textContent=open?'Show less':'Show more';more.setAttribute('aria-expanded',String(open));});var moreRow=make('div','zoroNotificationActions');moreRow.appendChild(more);article.appendChild(moreRow);}
-        if(/^T[a-z0-9]{6,20}$/i.test(String(n.id||''))){var row=article.querySelector('.zoroNotificationActions')||make('div','zoroNotificationActions'),read=make('button','zoroNotificationRead focusable');article.appendChild(row);read.type='button';read.append(icon('check'),make('span','','Mark read'));read.addEventListener('click',async function(){
-          if(key!==identity())return;read.disabled=true;
-          try {var res=await root.fetch('/support/notifications/'+encodeURIComponent(n.id)+'/read',{method:'POST',headers:{'X-Jellyfin-Token':root.ApiClient.accessToken()},signal:controller.signal,redirect:'error'});if(!res.ok)throw Error();if(key!==identity())return;article.remove();caughtUp();close.focus();}
-          catch(_){if(key===identity()&&article.isConnected){read.disabled=false;read.textContent='Try again';}}
-        });row.appendChild(read);}content.appendChild(article);
+    function serverRow(news,isNew){
+      var item=make('article','zoroNotificationItem zoroServerMessage'),head=make('div','zoroNotificationItemTop');item.dataset.type=news.type;
+      head.appendChild(make('h3','',news.title));item.append(kind(news.type==='maintenance'||news.type==='warning'?'campaign':'auto_awesome','Server message'),head,make('p','',news.message));
+      if(news.action){var acts=make('div','zoroNotificationActions'),go=make('a','zoroNotificationAction focusable',news.action.label);go.href=news.action.href;if(/^https:/i.test(go.href)){go.target='_blank';go.rel='noopener noreferrer';}go.addEventListener('click',function(){if(!/^https:/i.test(go.href))closeNotifications();});acts.appendChild(go);item.appendChild(acts);}
+      if(isNew&&news.dismissible&&messages)whenSeen(item,function(){messages.dismiss(news.id).then(badge,badge);badge();});
+      return item;
+    }
+    function requestRow(q,isNew){
+      var row=make('button','zoroNotificationItem zoroNotificationRequest focusable');row.type='button';
+      var poster=make('span','zoroNotificationPoster');poster.setAttribute('aria-hidden','true');
+      if(/^(?:https:\/\/|\/(?![\/\\]))/i.test(String(q.posterUrl||''))){var img=make('img');img.alt='';img.decoding='async';img.referrerPolicy='no-referrer';img.src=q.posterUrl;img.addEventListener('error',function(){img.remove();});poster.appendChild(img);}
+      var text=make('span','zoroNotificationRequestText'),status=make('span','zoroNotificationReady',q.is4k?'Ready to watch · 4K':'Ready to watch');
+      text.append(make('span','zoroNotificationRequestTitle',q.title),status);row.append(poster,text,icon('chevron_right'));
+      row.setAttribute('aria-label',q.title+', '+(q.is4k?'4K ':'')+'ready to watch. Open title');
+      function markRead(){var read=saved('requests',[]);if(read.indexOf(q.id)<0){read.push(q.id);save('requests',read.slice(-500));}if(inbox.data)inbox.data.readRequests=read;badge();}
+      row.addEventListener('click',async function(){
+        if(row.disabled)return;row.disabled=true;status.textContent='Opening…';
+        try{
+          var title=await getJson(serverUrl('Zorofin/Requests/'+(q.type==='tv'?'tv':'movie')+'/'+encodeURIComponent(q.tmdbId)),controller.signal);
+          var info=title&&title.mediaInfo,id=info&&(q.is4k?info.jellyfinMediaId4k:info.jellyfinMediaId);
+          if(!id||!/^[A-Za-z0-9-]{1,64}$/.test(String(id)))throw Error('missing');
+          if(key!==identity())return;markRead();closeNotifications();
+          root.location.hash='#/details?id='+encodeURIComponent(id)+'&serverId='+encodeURIComponent(root.ApiClient.serverId());
+        }catch(_){
+          if(key!==identity()||!row.isConnected)return;row.disabled=false;status.textContent=q.is4k?'Ready to watch · 4K':'Ready to watch';
+          var old=content.querySelector('.zoroNotificationNote.zoroNotificationOpenError');if(old)old.remove();
+          var note=make('p','zoroNotificationNote zoroNotificationOpenError','This title couldn’t be opened. Check its availability in Requests.');content.insertBefore(note,content.firstChild);
+        }
       });
-      if(!data){var note=make('p','zoroNotificationNote','Support updates couldn’t load.');content.appendChild(note);}
-      caughtUp();
-    }catch(_){if(key===identity()&&state.notification===backdrop){message('Notifications are unavailable.','error_outline');var retry=make('button','zoroNotificationRead focusable','Try again');retry.type='button';retry.addEventListener('click',function(){notifications(trigger);});content.appendChild(retry);}}
-    finally{root.clearTimeout(timeout);}
+      if(isNew)whenSeen(row,markRead);
+      return row;
+    }
+    function replyRow(n,isNew){
+      var row=make('button','zoroNotificationItem zoroSupportReply focusable');row.type='button';row.setAttribute('aria-expanded','false');
+      var body=make('span','zoroNotificationBody',n.message||''),ref=make('span','zoroNotificationRef','Reference: '+String(n.id||''));ref.hidden=true;
+      row.append(kind('support_agent','Support reply'),make('span','zoroNotificationReplyTitle',n.affectedMedia||n.issueType||'Support update'),body,ref);
+      // Like the apps: tap the reply to read all of it.
+      row.addEventListener('click',function(){var open=row.classList.toggle('expanded');row.setAttribute('aria-expanded',String(open));ref.hidden=!open||!n.id;});
+      if(isNew&&/^T[a-z0-9]{6,20}$/i.test(String(n.id||'')))whenSeen(row,function(){
+        var history=saved('replies',[]).filter(function(h){return h.id!==n.id;});history.unshift({id:String(n.id),affectedMedia:String(n.affectedMedia||n.issueType||'').slice(0,200),message:String(n.message||'').slice(0,4000)});save('replies',history.slice(0,20));
+        if(inbox.data)inbox.data.replies=inbox.data.replies.filter(function(r){return r.id!==n.id;});badge();
+        root.fetch('/support/notifications/'+encodeURIComponent(n.id)+'/read',{method:'POST',headers:headers(),redirect:'error'}).catch(function(){/* the reply comes back next time */});
+      });
+      return row;
+    }
+    var news=data.message,newRequests=data.requests.filter(function(q){return data.readRequests.indexOf(q.id)<0;}),oldRequests=data.requests.filter(function(q){return data.readRequests.indexOf(q.id)>=0;});
+    var replyIds=data.replies.map(function(n){return n.id;}),oldReplies=saved('replies',[]).filter(function(h){return h&&h.message&&replyIds.indexOf(h.id)<0;});
+    if(data.failed){var retry=make('button','zoroNotificationRetry focusable');retry.type='button';retry.append(icon('refresh'),make('span','','Couldn’t refresh · Retry'));retry.addEventListener('click',function(){notifications(trigger);});content.appendChild(retry);}
+    var fresh=0;
+    if(news&&!news.dismissed){content.appendChild(serverRow(news,true));fresh++;}
+    newRequests.forEach(function(q){content.appendChild(requestRow(q,true));fresh++;});
+    data.replies.forEach(function(n){content.appendChild(replyRow(n,true));fresh++;});
+    if(!fresh){var empty=make('div','zoroNotificationCaughtUp');empty.append(make('p','zoroNotificationCaughtUpTitle','You’re all caught up'),make('p','','New updates will appear here.'));content.appendChild(empty);}
+    var old=(news&&news.dismissed?1:0)+oldRequests.length+oldReplies.length;
+    if(old){
+      var toggle=make('button','zoroNotificationHiddenToggle focusable'),list=make('div','zoroNotificationHidden');toggle.type='button';toggle.setAttribute('aria-expanded','false');list.hidden=true;
+      toggle.append(make('span','','Hidden ('+old+')'),icon('expand_more'));
+      toggle.addEventListener('click',function(){
+        if(!list.children.length){if(news&&news.dismissed)list.appendChild(serverRow(news,false));oldRequests.slice(-20).reverse().forEach(function(q){list.appendChild(requestRow(q,false));});oldReplies.forEach(function(h){list.appendChild(replyRow(h,false));});}
+        list.hidden=!list.hidden;toggle.setAttribute('aria-expanded',String(!list.hidden));toggle.lastChild.textContent=list.hidden?'expand_more':'expand_less';
+      });
+      content.append(toggle,list);
+    }
+    badge();
   }
   function measure() {
     if(!state.nav||!state.header)return;
@@ -690,6 +778,7 @@
     else {
       if(header!==state.header){restoreControls();if(resizeObserver)resizeObserver.disconnect();state.header=header;if(resizeObserver)resizeObserver.observe(header);}
       nav();profileIdentity();relocateControls();headerActions();mobileHeader();homeHeading();homeCategories();decorateSearch();profile();
+      badge();scheduleInbox();
       doc.querySelectorAll('.mainAnimatedPages .page,.mainAnimatedPages .mainAnimatedPage').forEach(function(page){if(visible(page)&&!page.classList.contains('zoroShellPage'))page.classList.add('zoroShellPage');});
       var hasContext=contextViews();if(html.classList.contains('zoro-shell-context-tabs')!==hasContext)html.classList.toggle('zoro-shell-context-tabs',hasContext);
       var selected=current==='settings'?'profile':current;

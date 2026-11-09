@@ -22,8 +22,11 @@ volumes:
 
 services:
   zorofin-companion:
-    # A published image once available; until then this builds from source.
+    # Built from this folder by default. To run the published image instead,
+    # set ZOROFIN_COMPANION_IMAGE=ghcr.io/zoraz01/zorofin-companion:<version>
+    # and ZOROFIN_COMPANION_PULL=always (see "Published image" in README.md).
     image: ${ZOROFIN_COMPANION_IMAGE:-zorofin-companion:compose}
+    pull_policy: ${ZOROFIN_COMPANION_PULL:-missing}
     build:
       context: ${ZOROFIN_COMPANION_SOURCE:-.}
     env_file:

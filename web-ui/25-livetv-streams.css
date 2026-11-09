@@ -1,0 +1,214 @@
+/* Zorofin Live TV streams: channels in use, Join, and the "in use" dialog.
+ * Colors follow the Live TV theme (zorofin-live-tv.css) and the Apple apps. */
+
+.zls-strip {
+  box-sizing: border-box;
+  margin: 8px 3.3% 22px;
+  font-family: inherit;
+}
+
+.zls-row {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.zls-row::-webkit-scrollbar { display: none; }
+
+.zls-card,
+.zls-dialog-now {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--zoro-live-border, rgba(255, 255, 255, .11));
+  border-radius: 14px;
+  background: var(--zoro-live-surface-raised, rgba(27, 34, 30, .96));
+  color: #f5f7f5;
+}
+.zls-card {
+  flex: 0 0 auto;
+  width: min(440px, 86vw);
+  scroll-snap-align: start;
+}
+.zls-yours { border-color: rgba(114, 231, 155, .45); }
+
+.zls-logo {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0d110f;
+  color: #bbc5bd;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: .04em;
+}
+.zls-logo img { width: 100%; height: 100%; object-fit: contain; padding: 8px; box-sizing: border-box; }
+
+.zls-text { flex: 1 1 auto; min-width: 0; }
+.zls-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.zls-live {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid rgba(114, 231, 155, .55);
+  border-radius: 999px;
+  background: rgba(5, 18, 10, .9);
+  color: var(--zoro-live-accent-soft, #72e79b);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .1em;
+}
+.zls-channel,
+.zls-programme,
+.zls-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zls-channel { font-size: 17px; font-weight: 700; }
+.zls-programme { margin-top: 4px; font-size: 15px; color: #e6ece8; }
+.zls-meta { margin-top: 3px; font-size: 13px; color: var(--zoro-live-muted, rgba(232, 239, 235, .68)); }
+
+.zls-join,
+.zls-line-join,
+.zls-primary,
+.zls-secondary {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.zls-join,
+.zls-primary {
+  background: var(--zoro-live-accent, #42d779);
+  color: var(--zoro-live-accent-ink, #041208);
+}
+.zls-join-yours,
+.zls-line-join,
+.zls-secondary {
+  background: rgba(255, 255, 255, .1);
+  color: #f5f7f5;
+}
+.zls-join:focus-visible,
+.zls-line-join:focus-visible,
+.zls-primary:focus-visible,
+.zls-secondary:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+.zls-foot {
+  margin: 10px 2px 0;
+  font-size: 14px;
+  color: var(--zoro-live-muted, rgba(232, 239, 235, .68));
+}
+
+/* "In use" on channel cards that are playing. */
+.zls-badge {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.zls-badge::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--zoro-live-accent, #42d779);
+  vertical-align: 1px;
+}
+
+/* Channel page: one line under the Play buttons. */
+.zls-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 14px 0 4px;
+  font-size: 16px;
+  color: #e6ece8;
+}
+.zls-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--zoro-live-accent, #42d779);
+  box-shadow: 0 0 0 4px rgba(66, 215, 121, .18);
+}
+.zls-dot-busy { background: #e0b44a; box-shadow: 0 0 0 4px rgba(224, 180, 74, .18); }
+.zls-line-join { min-height: 40px; padding: 0 16px; font-size: 14px; }
+
+/* Dialog when every stream is in use. */
+.zls-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, .66);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.zls-dialog {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 480px;
+  padding: 26px;
+  border: 1px solid var(--zoro-live-border, rgba(255, 255, 255, .11));
+  border-radius: 20px;
+  background: var(--zoro-live-surface, rgba(17, 22, 19, .98));
+  color: #f5f7f5;
+  font-size: 16px;
+  line-height: 1.45;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+}
+.zls-dialog h2 { margin: 0 0 16px; font-size: 22px; font-weight: 750; }
+.zls-dialog p { margin: 14px 0 0; }
+.zls-dialog .zls-dialog-now { margin: 0; background: rgba(255, 255, 255, .04); }
+.zls-muted { color: var(--zoro-live-muted, rgba(232, 239, 235, .68)); }
+.zls-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+
+@media (max-width: 599px) {
+  .zls-strip { margin: 4px 16px 18px; }
+  .zls-card { width: 86vw; padding: 12px; gap: 12px; }
+  .zls-logo { width: 52px; height: 52px; border-radius: 10px; }
+  .zls-channel { font-size: 16px; }
+  .zls-programme { font-size: 14px; }
+  .zls-join { padding: 0 16px; }
+  .zls-overlay { align-items: flex-end; padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .zls-dialog { padding: 22px; border-radius: 18px; }
+  .zls-actions { flex-direction: column-reverse; }
+  .zls-actions button { width: 100%; }
+}
+
+.layout-tv .zls-card { width: 560px; padding: 18px 20px; }
+.layout-tv .zls-logo { width: 80px; height: 80px; }
+.layout-tv .zls-channel { font-size: 24px; }
+.layout-tv .zls-programme { font-size: 20px; }
+.layout-tv .zls-meta, .layout-tv .zls-foot { font-size: 18px; }
+.layout-tv .zls-join, .layout-tv .zls-primary, .layout-tv .zls-secondary { min-height: 60px; font-size: 20px; }
+.layout-tv .zls-dialog { max-width: 700px; font-size: 22px; }
+.layout-tv .zls-dialog h2 { font-size: 30px; }

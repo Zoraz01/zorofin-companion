@@ -57,14 +57,45 @@ function bestLogo(name, files) {
   return bestScore >= 0.78 ? best : null;
 }
 
-// Lists logo files for the chosen countries. Returns null on a transient failure.
-async function logoFiles(fetcher, countries) {
+// The operator's "use this logo" rules: "Channel name=file-us.png", "=https://…"
+// or "=none". A rule matches a channel whose cleaned name is, or starts with,
+// the rule's name (ignoring case). Fixes the channels fuzzy matching misses.
+const LOGO_FILE = /^[a-z0-9][a-z0-9-]*\.png$/;
+function parseOverrides(list) {
+  const rules = [];
+  const errors = [];
+  for (const entry of list || []) {
+    const at = String(entry).indexOf('=');
+    const name = at > 0 ? String(entry).slice(0, at).trim() : '';
+    const logo = at > 0 ? String(entry).slice(at + 1).trim() : '';
+    let ok = name.length > 0 && name.length <= 80 && (logo.toLowerCase() === 'none' || LOGO_FILE.test(logo));
+    if (!ok && /^https:\/\//i.test(logo)) {
+      try { ok = name.length > 0 && name.length <= 80 && new URL(logo).protocol === 'https:'; } catch (_) { ok = false; }
+    }
+    if (ok) rules.push({ name: cleanChannelName(name).toLowerCase(), logo: logo.toLowerCase() === 'none' ? 'none' : logo });
+    else errors.push(String(entry));
+  }
+  // Longest name first, so "NBC 4 Washington" wins over "NBC".
+  rules.sort((a, b) => b.name.length - a.name.length);
+  return { rules, errors };
+}
+
+function overrideFor(name, rules) {
+  const cleaned = cleanChannelName(name).toLowerCase();
+  return (rules || []).find(rule => cleaned === rule.name || cleaned.startsWith(rule.name + ' ')) || null;
+}
+
+// Lists logo files for the chosen countries, plus any file an override names
+// from another country. Returns null on a transient failure.
+async function logoFiles(fetcher, countries, extraNames = []) {
   try {
     const response = await fetcher(TREE_URL, { maxBytes: 30 * 1024 * 1024, headers: { Accept: 'application/vnd.github+json' } });
     if (response.status !== 200) return null;
     const tree = JSON.parse(response.body.toString('utf8')).tree || [];
     const prefixes = countries.map(country => `countries/${country}/`);
-    return tree.map(node => node.path).filter(file => typeof file === 'string' && file.endsWith('.png') && prefixes.some(prefix => file.startsWith(prefix)));
+    const extra = new Set(extraNames);
+    return tree.map(node => node.path).filter(file => typeof file === 'string' && file.endsWith('.png') && file.startsWith('countries/')
+      && (prefixes.some(prefix => file.startsWith(prefix)) || extra.has(stem(file) + '.png')));
   } catch (_) {
     return null;
   }
@@ -74,4 +105,4 @@ function rawUrl(file) {
   return RAW_BASE + file.split('/').map(encodeURIComponent).join('/');
 }
 
-module.exports = { bestLogo, cleanChannelName, logoFiles, rawUrl };
+module.exports = { bestLogo, cleanChannelName, logoFiles, overrideFor, parseOverrides, rawUrl };

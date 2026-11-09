@@ -150,6 +150,10 @@
         'html.' + ON + ' #homeTab .sections>.verticalSection:not(.zoroHomeRow):not(#zoroLiveEvents):not(#zoroCollections),',
         'html.' + ON + ' #homeTab .sections>[class*="section"]:not(.verticalSection):not(.zoroHomeRow),',
         'html.' + ON + ' #homeTab #hssLoadingIndicator{display:none!important;}',
+        // The plugin only draws rows that have cards. Other scripts that hide "empty" Continue Watching
+        // rows count jellyfin-web's .card elements, which these rows don't use (Jellyfin Enhanced's
+        // hidden-content filter does), so keep the rows shown.
+        'html.' + ON + ' #homeTab .sections>.zoroHomeRow{display:block!important;}',
         '.zoroHomeRow .zoroBrowseArtwork{position:relative;overflow:hidden;border-radius:12px;}',
         '.zoroHomeRow span.zoroBrowsePoster{display:block;aspect-ratio:16/9;background:#242c29;}',
         '.zoroHomeRow .zph-badges{position:absolute;left:8px;top:8px;display:flex;flex-wrap:wrap;gap:4px;pointer-events:none;}',

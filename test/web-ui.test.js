@@ -147,3 +147,19 @@ test('Home banner picks titles with backdrops and writes their details line', { 
   assert.deepEqual(banner.pick([null, { Id: 'e', Type: 'Episode', BackdropImageTags: ['b'] }, { Id: 'n', Type: 'Movie', BackdropImageTags: [] }, show]).map(i => i.Id), ['s']);
   assert.equal(banner.pick(many).length, 8);
 });
+
+test('an add-ons folder is listed with the pack, wins on the same name, and refuses symlinks', async () => {
+  const dir = folder({ '10-theme-base.css': 'pack{}', '30-theme-core.js': 'pack()' });
+  const extra = folder({ '70-site-support.js': 'site()', '30-theme-core.js': 'override()' });
+  fs.symlinkSync('/etc/hostname', path.join(extra, '71-site-link.js'));
+  const ui = createWebUi({}, { env: { ZOROFIN_WEB_UI_DIR: dir, ZOROFIN_WEB_UI_EXTRA_DIR: extra } });
+  const manifest = JSON.parse((await ui.handlePublic({ segments: ['manifest.json'] })).raw.toString());
+  assert.deepEqual(manifest.scripts, ['30-theme-core.js', '70-site-support.js']);
+  assert.equal((await ui.handlePublic({ segments: ['70-site-support.js'] })).raw.toString(), 'site()');
+  assert.equal((await ui.handlePublic({ segments: ['30-theme-core.js'] })).raw.toString(), 'override()');
+  assert.equal((await ui.handlePublic({ segments: ['10-theme-base.css'] })).raw.toString(), 'pack{}');
+  assert.equal((await ui.handlePublic({ segments: ['71-site-link.js'] })).status, 404);
+  // Without the setting, the pack alone is served.
+  const plain = createWebUi({}, { env: { ZOROFIN_WEB_UI_DIR: dir } });
+  assert.equal((await plain.handlePublic({ segments: ['70-site-support.js'] })).status, 404);
+});

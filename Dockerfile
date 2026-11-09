@@ -1,5 +1,17 @@
 # Zorofin companion. No npm dependencies; the image carries only the source.
+# Multi-arch (linux/amd64, linux/arm64): see tools/publish-image.sh and
+# .github/workflows/companion-image.yml.
 FROM node:22-alpine
+
+ARG VERSION=dev
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="Zorofin companion" \
+      org.opencontainers.image.description="Optional companion service for Zorofin servers (talks to the Zorofin Jellyfin plugin)." \
+      org.opencontainers.image.source="https://github.com/Zoraz01/zorofin-companion" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
+
 WORKDIR /app
 COPY package.json ./
 COPY src ./src

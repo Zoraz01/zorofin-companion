@@ -1,6 +1,6 @@
 # Zorofin companion
 
-Status: **early (v0.1.0)**. Modules shipping: `notifications`, `liveTvGuide`, `recommendations`, `webUi`.
+Status: **early (v0.1.0)**. Modules shipping: `notifications`, `liveTvGuide`, `liveTvStreams`, `recommendations`, `webUi`.
 
 License: AGPL-3.0-only (see [LICENSE](LICENSE)); bundled third-party files are
 listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). "Zorofin" and the
@@ -18,11 +18,18 @@ the modules that benefit from isolation:
 | --- | --- | --- |
 | `notifications` | **Available** | A separate request-alert service |
 | `liveTvGuide` | **Available** | Hand-run guide enrichment scripts |
-| Channel logos | **Available** inside `liveTvGuide` | Hand-picked channel logos |
+| Channel logos | **Available** inside `liveTvGuide` | tv-logos matching plus your own "use this logo" rules |
+| `liveTvStreams` | **Available** | Telling viewers by hand which channel is using the Live TV stream |
 | `recommendations` | **Available** (deterministic ranking; optional AI ranking with your own key) | Hand-made Home shelves |
 | `webUi` | **Available**; ships the Zorofin theme, Live TV pages, Requests hub (off by default) and web player | JavaScript Injector and custom CSS |
 | `recap` | Later | — |
 
+
+**Setting up a server?** Start with
+[the setup guide](https://github.com/Zoraz01/jellyfin-plugin-zorofin/blob/main/docs/SETUP.md)
+in the plugin repository. It covers the plugin and the companion together:
+installing, every Dashboard tab, how they connect, replacing other Jellyfin
+plugins, and troubleshooting. This README is the technical reference.
 
 A Zorofin server works without the companion. Apps only see a companion module
 when the plugin's capability manifest lists it.
@@ -95,7 +102,8 @@ Generate a secret with `openssl rand -hex 32`.
 ```sh
 npm test                      # node:test, no dependencies
 ZOROFIN_BRIDGE_SECRET=$(openssl rand -hex 32) npm start
-docker build -t zorofin-companion:dev .
+tools/publish-image.sh --local  # docker build, tagged zorofin-companion:dev
+tools/smoke-test-image.sh
 ```
 
 ## Run with Docker Compose
@@ -135,10 +143,58 @@ Steps:
 | `ZOROFIN_JELLYFIN_URL` | `http://jellyfin:8096` | Jellyfin runs on the host (`http://host.docker.internal:8096`) or elsewhere |
 | `ZOROFIN_SEERR_URL` | `http://seerr:5055` | Seerr has another name, such as `http://jellyseerr:5055` |
 | `ZOROFIN_MODULES` | `notifications` | You want other modules |
-| `ZOROFIN_COMPANION_IMAGE` | `zorofin-companion:compose` (built from this folder) | You use a published image |
+| `ZOROFIN_COMPANION_IMAGE` | `zorofin-companion:compose` (built from this folder) | You use the published image (below) |
+| `ZOROFIN_COMPANION_PULL` | `missing` | Set `always` with a published image so Compose pulls updates instead of building |
 | `ZOROFIN_COMPANION_DATA` | a named volume | You want the data in a folder |
 | `ZOROFIN_COMPANION_SECRETS` | `./secrets` | Your secrets live elsewhere |
 | `ZOROFIN_COMPANION_PUBLISH` | `127.0.0.1:9310` | Only with `compose.host-jellyfin.yaml`; never expose it to the internet |
+
+### Published image
+
+The companion is published for `linux/amd64` and `linux/arm64` (Intel and
+Apple Silicon Macs, most NAS boxes, Raspberry Pi 4/5) as
+`ghcr.io/zoraz01/zorofin-companion`:
+
+| Tag | What it is |
+| --- | --- |
+| `1.2.3`, `1.2` | A release (`companion-v1.2.3` git tag) |
+| `latest` | The newest release |
+| `edge` | The newest build of `main`; for testing |
+| `sha-<commit>` | One exact build |
+
+To use it, set these in the stack's `.env` and run `docker compose up -d
+zorofin-companion`:
+
+```sh
+ZOROFIN_COMPANION_IMAGE=ghcr.io/zoraz01/zorofin-companion:latest
+ZOROFIN_COMPANION_PULL=always
+```
+
+Pin a version (`:0.2.0`) on servers you don't want updated by surprise, and
+roll back by setting the previous version. The package is public (owner
+decision, November 6, 2026), so no login is needed to pull. The image's
+source label points at the public Zoraz01/zorofin-companion repository, but a
+package first published from this private repository starts private: after
+the first publish, set it to Public once in GitHub → Packages → zorofin-companion → Package
+settings → Change visibility. The image holds the companion's source as
+readable JavaScript.
+
+**Publishing.** `.github/workflows/companion-image.yml` runs the tests, then
+pushes `edge` and `sha-…` on every change to `main`, and the release tags when
+a `companion-v<version>` tag is pushed (the tag must match `package.json`).
+Pull requests get the tests, an amd64 build and `tools/smoke-test-image.sh`,
+with nothing pushed. When Actions can't run, publish by hand from a machine
+with Docker and `docker login ghcr.io` (token with `write:packages`):
+
+```sh
+tools/publish-image.sh --local     # build for this machine and load it
+tools/smoke-test-image.sh          # /health, non-root, clean stop
+tools/publish-image.sh             # push edge + sha-<commit> for amd64 and arm64
+tools/publish-image.sh --release   # also push <version> and latest
+```
+
+A release: bump `version` in `package.json`, merge, tag `companion-v<version>`
+on that commit and push the tag (or run `tools/publish-image.sh --release`).
 
 **Companion URL for the plugin:** `http://zorofin-companion:9310` when
 Jellyfin is a container on the same network. When Jellyfin runs on the host,
@@ -207,7 +263,10 @@ Serves the operator's XMLTV guide back to Jellyfin, improved:
 - channels without a logo get one from the public
   [tv-logos](https://github.com/tv-logo/tv-logos) collection for the countries
   the operator picks. Logos are broadcasters' trademarks; the operator's server
-  fetches them for its own guide and Zorofin ships none.
+  fetches them for its own guide and Zorofin ships none. When a channel gets
+  no logo or the wrong one, a "use this logo" rule fixes it (see
+  `ZOROFIN_GUIDE_LOGO_OVERRIDES`); a rule also replaces a logo the guide
+  already had.
 
 Works with any XMLTV source: Threadfin, xTeVe, a tuner's guide or a listings
 service. If the source breaks, Jellyfin keeps getting the last good guide.
@@ -223,6 +282,7 @@ slots) are deliberately not part of this module; add them as a private module.
 | `ZOROFIN_GUIDE_SPORTSDB_KEY` | The operator's own TheSportsDB key, for matchup cards |
 | `ZOROFIN_GUIDE_CHANNEL_LOGOS` | `1` to add channel logos from tv-logos |
 | `ZOROFIN_GUIDE_LOGO_COUNTRIES` | tv-logos country folders, default `united-states` (e.g. `united-states,united-kingdom`) |
+| `ZOROFIN_GUIDE_LOGO_OVERRIDES` | Comma-separated `Channel name=logo` rules. The logo is a tv-logos file name from any country (`nbc-4-washington-us.png`), an `https://` image, or `none`. A rule matches the channel name with or without a provider prefix like `US|`, and the longest matching name wins |
 | `ZOROFIN_GUIDE_MATCHUP_TITLES` | `0` to leave titles unchanged |
 | `ZOROFIN_GUIDE_REFRESH_MINUTES` | Default 30 |
 
@@ -235,6 +295,60 @@ In Jellyfin: **Dashboard → Live TV → TV Guide Data Providers → XMLTV**, fi
 or URL `http://zorofin-companion:9310/v1/public/liveTvGuide/<token>/guide.xml`,
 replacing the direct guide URL. Admins can check `GET status` or trigger
 `POST refresh` at `/Zorofin/Companion/liveTvGuide/...`.
+
+## Module: liveTvStreams
+
+Tells apps how many Live TV streams the provider allows, how many are in use
+and which channel each one is playing, so a client can show "1 of 1 Live TV
+stream in use: ESPN" and offer **Join** instead of a start that fails.
+
+In-use streams come from Jellyfin's sessions: one stream per distinct live
+channel, because Threadfin and Jellyfin share one upstream connection between
+everyone watching the same channel. A session counts only while its player has
+checked in recently, since Jellyfin can keep a closed player's channel listed.
+The limit is the operator's setting, or, with the provider's Xtream login, the
+provider's own `max_connections`. The provider's `active_cons` also reveals
+streams used outside this server (another app on the account, or a relay that
+hasn't closed yet). The check is advisory and reserves nothing.
+
+`GET /Zorofin/Companion/liveTvStreams/status`, optionally with `channelId`
+and the viewer's `deviceId`, for any viewer with Live TV access:
+
+```json
+{
+  "version": 1, "state": "full", "limit": 1, "inUse": 1, "free": 0, "otherUse": 0,
+  "message": "1 of 1 Live TV stream in use: ESPN.",
+  "streams": [{ "channelId": "…", "channelName": "ESPN", "channelNumber": "206",
+    "programme": { "title": "Monday Night Football", "endsAt": "…" },
+    "startedAt": "…", "viewers": 2, "paused": false, "yours": true }],
+  "request": { "channelId": "…", "playing": false, "canStart": false, "reason": "full",
+    "message": "The Live TV stream is in use on another channel. You can join that channel, or try again when it is free." }
+}
+```
+
+`request.reason` is `join` (already playing), `free`, `switch` (this device
+holds the only stream it would replace) or `full`. Viewers never see other
+people's names. Administrators also get `watching` per stream (name, device,
+paused) unless turned off, `limitSource`, the provider's numbers and
+`warnings` (setting above the provider's limit, account not active, account
+ending within 14 days). Provider passwords are never returned or logged.
+Jellyfin failures return `503` with `state: "unknown"`; clients should then
+play normally.
+
+| Variable | Meaning |
+| --- | --- |
+| `ZOROFIN_STREAMS_LIMIT` | Streams the provider allows, 1–50, default 1. Match Threadfin's tuner count |
+| `ZOROFIN_STREAMS_XTREAM_URL` | Optional provider address, e.g. `http://provider.example:8080` |
+| `ZOROFIN_STREAMS_XTREAM_USERNAME` | With the address |
+| `ZOROFIN_STREAMS_XTREAM_PASSWORD` | With the address (or `_FILE`) |
+| `ZOROFIN_STREAMS_USE_PROVIDER_LIMIT` | `0` to keep your own limit even when the provider reports one |
+| `ZOROFIN_STREAMS_VIEWER_NAMES` | `admins` (default) or `off` |
+| `ZOROFIN_STREAMS_STALE_SECONDS` | Forget a player that hasn't checked in for this long, default 90 |
+
+Needs `ZOROFIN_JELLYFIN_URL` and `ZOROFIN_JELLYFIN_API_KEY`. To allow more
+than one stream, get a plan with more connections from your provider, set
+your tuner's limit (for example Threadfin's tuner count) to match, then set
+the limit here or let the companion read it from the provider.
 
 ## Module: recommendations
 
@@ -292,6 +406,11 @@ and adds the listed styles and scripts. Files come from one flat folder,
   links are not.
 - The module advertises `webUi` as enabled only while there is a style or
   script to load, so an empty folder leaves Jellyfin's web client plain.
+- `ZOROFIN_WEB_UI_EXTRA_DIR` (optional) adds a second flat folder for one
+  server's own add-ons, such as the reference server's private Support
+  button and Rewind. Its files follow the same rules, are listed with the pack, and win
+  over a pack file with the same name. Name them `70-site-*.js` so no switch
+  hides them. Keep the folder outside the image (it is a private mount).
 - A file whose name starts with an order number and a part name belongs to
   that part, and is left out while the part is switched off:
 
@@ -384,6 +503,10 @@ recommendations row and Live TV availability. Links to them are hidden. They
 come back as companion modules serve their data. A server without the Home
 Screen Sections, Jellyfin Enhanced and Media Bar plugins gets the theme over
 Jellyfin's own Home.
+The Notifications bell works like the iOS app's: an unread count, the
+server's message (plugin `/Zorofin/Announcement`), requests that are ready to
+watch (plugin `/Zorofin/Requests/activity?filter=available`; tap one to open the
+title), and rows marked read once seen, then listed under "Hidden".
 Home rows now come from the plugin instead of Home Screen Sections: with the
 plugin's Home tab on, `35-theme-home-plugin.js` draws every Home row from
 `/Zorofin/Home/Sections` (see the plugin README).

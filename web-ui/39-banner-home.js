@@ -3,7 +3,12 @@
  * same #slides-container markup the theme already styles, so servers don't
  * need the Media Bar plugin. When Media Bar is installed it stands down and
  * Media Bar keeps the banner. Play goes through Jellyfin's own player
- * (zorofin-home-layout.js handles the Play button). */
+ * (zorofin-home-layout.js handles the Play button).
+ *
+ * With the Zorofin plugin's extras (zorofin-extras.js), the operator can pick
+ * the titles in order and turn on trailers: each slide's YouTube trailer plays
+ * muted behind it after a moment (starting past its intro, found with
+ * SponsorBlock by the server), and a Trailer button plays it with sound. */
 (function (root, factory) {
   'use strict';
   var api = factory(root);
@@ -11,7 +16,21 @@
   else if (root && root.document) api.mount();
 }(typeof window === 'undefined' ? null : window, function (root) {
   'use strict';
-  var ROTATE_MS = 8000, COUNT = 8, REFRESH_MS = 30 * 60 * 1000;
+  var ROTATE_MS = 8000, COUNT = 8, REFRESH_MS = 30 * 60 * 1000, TRAILER_DELAY_MS = 2500, TRAILER_SLIDE_MS = 30000;
+  var FIELDS = 'Overview,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,BackdropImageTags,ImageTags,UserData,RemoteTrailers';
+
+  // Hand-picked titles keep the operator's order; ids the viewer can't see just drop out.
+  function ordered(items, ids) {
+    var byId = {};
+    (items || []).forEach(function (item) { if (item && item.Id) byId[String(item.Id).replace(/-/g, '').toLowerCase()] = item; });
+    return ids.map(function (id) { return byId[String(id).toLowerCase()]; }).filter(Boolean);
+  }
+  // The embed address for a muted, looping backdrop trailer.
+  function embedUrl(id, start, sound) {
+    var q = 'autoplay=1&playsinline=1&rel=0&iv_load_policy=3&modestbranding=1&enablejsapi=0' + (start ? '&start=' + start : '');
+    if (!sound) q += '&mute=1&controls=0&disablekb=1&loop=1&playlist=' + id;
+    return 'https://www.youtube-nocookie.com/embed/' + id + '?' + q;
+  }
 
   function minutes(ticks) {
     var total = Math.round((Number(ticks) || 0) / 600000000);
@@ -38,8 +57,8 @@
   function mount() {
     var doc = root.document, html = doc.documentElement;
     if (root.ZorofinHomeBanner) return;
-    var state = { key: '', items: null, loadedAt: 0, index: 0, timer: 0, paused: false, el: null, loading: false };
-    root.ZorofinHomeBanner = { version: '1.0.0' };
+    var state = { key: '', items: null, loadedAt: 0, index: 0, timer: 0, paused: false, el: null, loading: false, extras: null, trailerTimer: 0, playing: false };
+    root.ZorofinHomeBanner = { version: '1.1.0' };
 
     function client() { return root.ApiClient; }
     function who() {
@@ -54,20 +73,99 @@
     function make(tag, cls, text) { var el = doc.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; return el; }
     function icon(name) { var i = make('span', 'material-icons', name); i.setAttribute('aria-hidden', 'true'); return i; }
 
+    function extras() {
+      return root.ZorofinExtras ? root.ZorofinExtras.get().then(null, function () { return null; }) : Promise.resolve(null);
+    }
+    function random(c) {
+      return c.getItems(c.getCurrentUserId(), {
+        IncludeItemTypes: 'Movie,Series', Recursive: true, SortBy: 'Random', Limit: 24,
+        ImageTypeLimit: 1, EnableImageTypes: 'Backdrop,Logo', HasOverview: true,
+        Fields: FIELDS, IsPlayed: false, ExcludeLocationTypes: 'Virtual'
+      }).then(function (result) { return pick(result && result.Items); });
+    }
+    function chosen(c, ids) {
+      return c.getItems(c.getCurrentUserId(), { Ids: ids.join(','), EnableImageTypes: 'Backdrop,Logo', ImageTypeLimit: 1, Fields: FIELDS })
+        .then(function (result) { return pick(ordered(result && result.Items, ids)); });
+    }
     function load() {
       var c = client(), key = who();
       if (!c || !key || state.loading) return;
       state.loading = true;
-      c.getItems(c.getCurrentUserId(), {
-        IncludeItemTypes: 'Movie,Series', Recursive: true, SortBy: 'Random', Limit: 24,
-        ImageTypeLimit: 1, EnableImageTypes: 'Backdrop,Logo', HasOverview: true,
-        Fields: 'Overview,ProductionYear,OfficialRating,CommunityRating,RunTimeTicks,ChildCount,BackdropImageTags,ImageTags,UserData',
-        IsPlayed: false, ExcludeLocationTypes: 'Virtual'
-      }).then(function (result) {
+      extras().then(function (ex) {
+        state.extras = ex;
+        var ids = ex && ex.banner && ex.banner.itemIds || [];
+        // Hand-picked first; if none of them can be shown, fall back to the random pick.
+        return (ids.length ? chosen(c, ids).then(function (list) { return list.length ? list : random(c); }, function () { return random(c); }) : random(c));
+      }).then(function (items) {
         if (who() !== key) return;
-        state.key = key; state.items = pick(result && result.Items); state.loadedAt = Date.now(); state.index = 0;
+        state.key = key; state.items = items; state.loadedAt = Date.now(); state.index = 0;
         render();
       }, function () { state.items = []; render(); }).then(function () { state.loading = false; }, function () { state.loading = false; });
+    }
+
+    // ---- Trailers ----
+    function trailersOn() {
+      var ex = state.extras, conn = root.navigator && root.navigator.connection;
+      if (!ex || !ex.banner || !ex.banner.trailers) return false;
+      if (root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+      return !(conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || '')));
+    }
+    function stopTrailer() {
+      root.clearTimeout(state.trailerTimer);
+      state.playing = false;
+      if (state.el) state.el.querySelectorAll('.zoroBannerVideo').forEach(function (v) { v.remove(); });
+      if (state.el) state.el.querySelectorAll('.slide.zoro-trailer-on').forEach(function (s) { s.classList.remove('zoro-trailer-on'); });
+    }
+    function startTrailer() {
+      stopTrailer();
+      if (!state.el || !trailersOn() || doc.hidden) return;
+      var item = state.items[state.index], id = root.ZorofinExtras && root.ZorofinExtras.youTubeId(item);
+      if (!id) return;
+      var slideEl = state.el.querySelectorAll('.slide')[state.index], index = state.index;
+      state.trailerTimer = root.setTimeout(function () {
+        var skip = state.extras.banner.skipIntros && root.ZorofinExtras
+          ? root.ZorofinExtras.api('Zorofin/Extras/Trailer/' + id).then(function (r) { return (r && r.start) || 0; }, function () { return 0; })
+          : Promise.resolve(0);
+        skip.then(function (start) {
+          if (!state.el || state.index !== index || !slideEl.isConnected || doc.hidden) return;
+          var frame = make('iframe', 'zoroBannerVideo');
+          frame.src = embedUrl(id, start, false);
+          frame.title = ''; frame.tabIndex = -1;
+          frame.setAttribute('aria-hidden', 'true');
+          frame.setAttribute('allow', 'autoplay; encrypted-media');
+          frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+          // Show it only once YouTube's own loading screen has passed.
+          frame.addEventListener('load', function () { root.setTimeout(function () { if (frame.isConnected) slideEl.classList.add('zoro-trailer-on'); }, 1200); });
+          slideEl.querySelector('.backdrop-container').appendChild(frame);
+          state.playing = true;
+          schedule();
+        });
+      }, TRAILER_DELAY_MS);
+    }
+    function openTrailer(item) {
+      var id = root.ZorofinExtras && root.ZorofinExtras.youTubeId(item);
+      if (!id) return;
+      stopTrailer(); state.paused = true; schedule();
+      var back = make('div', 'zoroTrailerDialog'), box = make('div', 'zoroTrailerBox'), close = make('button', 'zoroTrailerClose');
+      back.setAttribute('role', 'dialog'); back.setAttribute('aria-modal', 'true'); back.setAttribute('aria-label', 'Trailer: ' + item.Name);
+      close.type = 'button'; close.setAttribute('aria-label', 'Close trailer'); close.appendChild(icon('close'));
+      var frame = make('iframe', ''); frame.src = embedUrl(id, 0, true); frame.title = 'Trailer: ' + item.Name;
+      frame.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture'); frame.setAttribute('allowfullscreen', '');
+      frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      box.append(frame, close); back.appendChild(box);
+      var opener = doc.activeElement;
+      function done() {
+        back.remove(); doc.removeEventListener('keydown', onKey, true); root.removeEventListener('hashchange', done);
+        state.paused = false; schedule(); startTrailer();
+        if (opener && opener.focus) opener.focus();
+      }
+      function onKey(e) { if (e.key === 'Escape' || e.key === 'Backspace' || e.keyCode === 461) { e.preventDefault(); e.stopPropagation(); done(); } }
+      close.addEventListener('click', done);
+      back.addEventListener('click', function (e) { if (e.target === back) done(); });
+      doc.addEventListener('keydown', onKey, true);
+      root.addEventListener('hashchange', done);
+      doc.body.appendChild(back);
+      close.focus();
     }
 
     function slide(item, active) {
@@ -96,7 +194,14 @@
         var next = !(item.UserData && item.UserData.IsFavorite);
         Promise.resolve(c.updateFavoriteStatus(c.getCurrentUserId(), item.Id, next)).then(function () { item.UserData = Object.assign({}, item.UserData, { IsFavorite: next }); heart(); });
       });
-      buttons.append(play, more, fav);
+      buttons.append(play);
+      if (state.extras && state.extras.banner && state.extras.banner.trailers && root.ZorofinExtras && root.ZorofinExtras.youTubeId(item)) {
+        var trailer = make('button', 'detail-button trailer-button'); trailer.type = 'button'; trailer.setAttribute('aria-label', 'Trailer');
+        trailer.appendChild(icon('movie'));
+        trailer.addEventListener('click', function () { openTrailer(item); });
+        buttons.append(trailer);
+      }
+      buttons.append(more, fav);
       s.append(back, make('div', 'gradient-overlay'), logo, info, plot, buttons);
       return s;
     }
@@ -107,13 +212,16 @@
       state.el.querySelectorAll('.slide').forEach(function (s, i) { s.classList.toggle('active', i === state.index); });
       state.el.querySelectorAll('.dot').forEach(function (d, i) { d.classList.toggle('active', i === state.index); d.setAttribute('aria-current', String(i === state.index)); });
       schedule();
+      startTrailer();
     }
     function schedule() {
       root.clearTimeout(state.timer);
-      if (!state.paused && state.items && state.items.length > 1 && !doc.hidden) state.timer = root.setTimeout(function () { show(state.index + 1); }, ROTATE_MS);
+      // A playing trailer gets longer before the next slide.
+      if (!state.paused && state.items && state.items.length > 1 && !doc.hidden) state.timer = root.setTimeout(function () { show(state.index + 1); }, state.playing ? TRAILER_SLIDE_MS : ROTATE_MS);
     }
 
     function render() {
+      stopTrailer();
       if (state.el) { state.el.remove(); state.el = null; }
       root.clearTimeout(state.timer);
       if (!onHome() || !state.items || !state.items.length || mediaBar()) { html.classList.remove('zoro-own-banner'); return; }
@@ -132,6 +240,7 @@
         pause.addEventListener('click', function () {
           state.paused = !state.paused; pause.replaceChildren(icon(state.paused ? 'play_arrow' : 'pause'));
           pause.setAttribute('aria-label', state.paused ? 'Resume' : 'Pause'); schedule();
+          if (state.paused) stopTrailer(); else startTrailer();
         });
         box.append(dots, pause);
       }
@@ -152,6 +261,7 @@
       state.el = box;
       html.classList.add('zoro-own-banner');
       schedule();
+      startTrailer();
     }
 
     function refresh() {
@@ -166,8 +276,8 @@
     root.setTimeout(refresh, 600);
     root.addEventListener('hashchange', function () { root.setTimeout(refresh, 0); });
     doc.addEventListener('viewshow', refresh);
-    doc.addEventListener('visibilitychange', schedule);
+    doc.addEventListener('visibilitychange', function () { schedule(); if (doc.hidden) stopTrailer(); else if (state.el && !state.paused) startTrailer(); });
   }
 
-  return { mount: mount, details: details, pick: pick, minutes: minutes };
+  return { mount: mount, details: details, pick: pick, minutes: minutes, ordered: ordered, embedUrl: embedUrl };
 }));

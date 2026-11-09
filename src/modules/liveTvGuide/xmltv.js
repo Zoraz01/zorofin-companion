@@ -88,8 +88,10 @@ async function rewriteChannels(xml, edit) {
       const open = /^<channel\b[^>]*>/.exec(block)[0];
       const iconTag = /<icon\b[^>]*\/?>/.exec(block);
       const name = element(block, 'display-name');
-      const change = name && !iconTag ? await edit({ id: attribute(open, 'id'), name: name.text }) : null;
-      if (change && change.icon) {
+      const change = name ? await edit({ id: attribute(open, 'id'), name: name.text, hasIcon: Boolean(iconTag) }) : null;
+      if (change && change.icon && iconTag && change.replace) {
+        block = block.replace(iconTag[0], `<icon src="${encode(change.icon)}" />`);
+      } else if (change && change.icon && !iconTag) {
         block = block.replace(/<\/channel>$/, `  <icon src="${encode(change.icon)}" />\n  </channel>`);
       }
     } catch (_) {

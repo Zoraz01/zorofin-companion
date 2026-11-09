@@ -12,7 +12,7 @@
 (function (root) {
   'use strict';
 
-  var VERSION = '2.1.0';
+  var VERSION = '2.2.0';
   var SEARCH_DELAY_MS = 180;
   var MIN_QUERY_LENGTH = 2;
   var STYLE_ID = 'zoroSearchStyles';
@@ -259,10 +259,12 @@
       '.zoroSearchSection{margin:1.2em 0 2em;padding:0 3.3%;contain:layout style;}',
       '.zoroSearchSection[hidden]{display:none!important;}',
       '.zoroSearchStatus{color:#bac4bf;margin:.3em 0 .8em;min-height:1.4em;font-size:.95em;}',
+      '.zoroSearchStatus:empty{display:none;}',
+      '.zoroSearchSection h2{margin:0 0 .6em;}',
       '.zoroSearchGrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px;}',
       '.zoroSearchCard{display:block;min-width:0;color:inherit;text-decoration:none;border-radius:8px;}',
       '.zoroSearchCard:focus{outline:4px solid #fff;outline-offset:5px;}',
-      '.zoroSearchCard:hover{outline:2px solid var(--zoro-accent,#42d779);outline-offset:4px;}',
+      '@media(hover:hover){.zoroSearchCard:hover{outline:2px solid var(--zoro-accent,#42d779);outline-offset:4px;}}',
       '.zoroSearchPoster{display:block;width:100%;height:auto;aspect-ratio:2/3;object-fit:cover;border-radius:8px;background:#242c29;}',
       '.zoroSearchPoster:not(img){height:0;padding-bottom:150%;}',
       '.zoroSearchTitle{display:block;margin-top:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}',
@@ -608,7 +610,8 @@
     var failed=browsing?state.recommendationsFailed:state.failedAt;
     var message = (browsing?state.recommendationsLoading:state.loading) ? (browsing ? 'Finding recommendations…' : 'Finding matches in your library…') :
       failed ? 'Library matches are unavailable. Try again. Standard search is below.' :
-      matches.length ? (browsing ? 'Movies and shows from your library' : 'Titles, genres and story topics') :
+      // Like the apps, a row of results needs no line of explanation under its title.
+      matches.length ? '' :
       browsing ? 'Recommended movies and shows will appear as your library grows.' : 'No matching titles. Try another title or spelling.';
     if(status.textContent!==message)status.textContent=message;
     var retry=section.querySelector('.zoroSearchRetry');

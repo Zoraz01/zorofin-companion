@@ -13,7 +13,7 @@ const { httpUrl } = require('../../config');
 const { readJsonFile, readSecret, writePrivateJson } = require('../../lib/io');
 const { HAS_MATCHUP, extractTeams, isSport, normalizeTeam } = require('./sports');
 const { fetchBuffer, mirrorImage, sportsDbCard, tvmazePoster } = require('./sources');
-const { bestLogo, cleanChannelName, logoFiles, rawUrl } = require('./logos');
+const { bestLogo, cleanChannelName, logoFiles, overrideFor, parseOverrides, rawUrl } = require('./logos');
 const { rewriteChannels, rewriteProgrammes } = require('./xmltv');
 
 const ID = 'liveTvGuide';
@@ -40,11 +40,13 @@ function settingsFrom(env) {
   const minutes = Number(env.ZOROFIN_GUIDE_REFRESH_MINUTES || 30);
   const channelLogos = env.ZOROFIN_GUIDE_CHANNEL_LOGOS === '1';
   const logoCountries = String(env.ZOROFIN_GUIDE_LOGO_COUNTRIES || 'united-states').split(',').map(item => item.trim()).filter(Boolean);
+  const overrides = parseOverrides(String(env.ZOROFIN_GUIDE_LOGO_OVERRIDES || '').split(',').map(item => item.trim()).filter(Boolean));
 
   if (!sourceUrl) errors.push('ZOROFIN_GUIDE_SOURCE_URL must be the http(s) address of your XMLTV guide');
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(token)) errors.push('ZOROFIN_GUIDE_TOKEN must be 32-128 letters, digits, - or _ (try openssl rand -hex 24)');
   if (logoCountries.some(country => !/^[a-z-]{2,40}$/.test(country))) errors.push('ZOROFIN_GUIDE_LOGO_COUNTRIES must be tv-logos country folder names, e.g. united-states,united-kingdom');
   if ((tvmaze || sportsDbKey || channelLogos) && !publicUrl) errors.push('ZOROFIN_GUIDE_PUBLIC_URL (how Jellyfin reaches the companion) is needed for artwork');
+  if (overrides.errors.length) errors.push(`ZOROFIN_GUIDE_LOGO_OVERRIDES entries must look like "Channel name=logo-file-us.png", "Channel name=https://…" or "Channel name=none": ${overrides.errors.slice(0, 3).join(', ')}`);
   if (publicUrl === null) errors.push('ZOROFIN_GUIDE_PUBLIC_URL must be a plain http(s) URL');
   if (!Number.isFinite(minutes) || minutes < 5 || minutes > 1440) errors.push('ZOROFIN_GUIDE_REFRESH_MINUTES must be 5 to 1440');
   if (sportsDbKey && !/^[A-Za-z0-9]{1,64}$/.test(sportsDbKey)) errors.push('ZOROFIN_GUIDE_SPORTSDB_KEY looks malformed');
@@ -58,6 +60,7 @@ function settingsFrom(env) {
     matchupTitles: env.ZOROFIN_GUIDE_MATCHUP_TITLES !== '0',
     channelLogos,
     logoCountries,
+    logoOverrides: overrides.rules,
     refreshMs: minutes * 60 * 1000,
   };
 }
@@ -114,20 +117,29 @@ function createLiveTvGuide(config, deps = {}) {
     const counts = { programmes: 0, titled: 0, iconed: 0, logos: 0 };
     let withLogos = xml;
     if (settings.channelLogos) {
+      const rules = settings.logoOverrides || [];
+      const named = rules.filter(rule => rule.logo.endsWith('.png') && !rule.logo.startsWith('https:')).map(rule => rule.logo);
       const tree = lookups.logoTree;
-      if (!tree || now() - tree.at > LOGO_TREE_TTL_MS) {
-        const files = await logoFiles(fetcher, settings.logoCountries);
-        if (files) lookups.logoTree = { at: now(), files };
+      const treeKey = named.slice().sort().join(',');
+      if (!tree || now() - tree.at > LOGO_TREE_TTL_MS || (tree.extra || '') !== treeKey) {
+        const files = await logoFiles(fetcher, settings.logoCountries, named);
+        if (files) lookups.logoTree = { at: now(), files, extra: treeKey };
       }
       const files = (lookups.logoTree && lookups.logoTree.files) || [];
       withLogos = await rewriteChannels(xml, async channel => {
-        const file = await lookup(lookups, run, 'logos', cleanChannelName(channel.name).toLowerCase(), async () => {
-          const match = bestLogo(channel.name, files);
+        const rule = overrideFor(channel.name, rules);
+        if (rule && rule.logo === 'none') return null;
+        // An operator's rule replaces the guide's own logo; a guess only fills a gap.
+        if (!rule && channel.hasIcon) return null;
+        const key = rule ? `rule:${rule.logo}` : cleanChannelName(channel.name).toLowerCase();
+        const file = await lookup(lookups, run, 'logos', key, async () => {
+          if (rule && rule.logo.startsWith('https:')) return { url: rule.logo };
+          const match = rule ? files.find(item => item.endsWith('/' + rule.logo)) : bestLogo(channel.name, files);
           return match ? { url: rawUrl(match) } : { miss: true };
         });
         if (!file) return null;
         counts.logos += 1;
-        return { icon: artUrl(file) };
+        return { icon: artUrl(file), replace: Boolean(rule) };
       });
     }
     const enriched = await rewriteProgrammes(withLogos, async programme => {

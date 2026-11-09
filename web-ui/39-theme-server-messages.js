@@ -4,8 +4,8 @@
  * the same message and share one "read" state per account.
  *
  * This script only fetches and remembers. The Notifications panel in
- * zorofin-shell.js lists the message, and an unread message puts a dot on the
- * Notifications button. Text only ever goes in through textContent, and links
+ * zorofin-shell.js lists the message and counts it in the green unread badge
+ * on the Notifications button. Text only ever goes in through textContent, and links
  * are limited to this server or https. */
 (function (root, factory) {
   'use strict';
@@ -17,7 +17,6 @@
   var VERSION = '3.0.0', REFRESH_MS = 5 * 60 * 1000;
   var TYPES = ['info', 'success', 'warning', 'maintenance'];
   var PENDING = 'zorofin-server-messages:';
-  var UNREAD = 'zoroServerMessage';
 
   function text(value, max) { return typeof value === 'string' ? value.trim().slice(0, max) : ''; }
   function safeHref(value) {
@@ -44,12 +43,6 @@
     };
   }
 
-  // A small dot on every Notifications button while a message is unread.
-  var STYLES = 'html[data-zoro-server-message=unread] :is(.zoroHomeAction[data-home-action=Notifications],[data-zoro-notifications]){position:relative;}' +
-    'html[data-zoro-server-message=unread] :is(.zoroHomeAction[data-home-action=Notifications],[data-zoro-notifications])::after{content:"";position:absolute;top:9px;right:9px;width:9px;height:9px;border-radius:50%;background:#42d779;box-shadow:0 0 0 2px #0d1210;pointer-events:none;}' +
-    'html[data-zoro-server-message=unread] [data-zoro-notifications]::after{top:50%;right:44px;margin-top:-4px;}' +
-    'html.layout-tv[data-zoro-server-message=unread] .zoroHomeAction[data-home-action=Notifications]::after{width:12px;height:12px;}';
-
   function mount() {
     var doc = root.document;
     if (root.ZorofinServerMessages) return;
@@ -72,11 +65,10 @@
     function locallyRead(id) { try { return Boolean(root.localStorage.getItem(pendingKey(id))); } catch (_) { return false; } }
     function remember(id, value) { try { if (value) root.localStorage.setItem(pendingKey(id), value); else root.localStorage.removeItem(pendingKey(id)); } catch (_) { /* private mode */ } }
 
-    function styles() { if (doc.getElementById(UNREAD + 'Styles')) return; var s = doc.createElement('style'); s.id = UNREAD + 'Styles'; s.textContent = STYLES; doc.head.appendChild(s); }
     function mark() {
       var a = state.data, unread = Boolean(a && !a.dismissed && state.key === user());
       var html = doc.documentElement;
-      if (unread) { styles(); html.setAttribute('data-zoro-server-message', 'unread'); }
+      if (unread) { html.setAttribute('data-zoro-server-message', 'unread'); }
       else html.removeAttribute('data-zoro-server-message');
       try { root.dispatchEvent(new root.CustomEvent('zorofin:server-message', { detail: { unread: unread } })); } catch (_) { /* old engines */ }
     }

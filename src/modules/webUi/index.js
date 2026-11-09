@@ -39,6 +39,9 @@ const FEATURES = Object.freeze({
   theme: { env: 'ZOROFIN_WEB_UI_THEME', default: true },
   player: { env: 'ZOROFIN_WEB_UI_PLAYER', default: true },
   banner: { env: 'ZOROFIN_WEB_UI_BANNER', default: true, needs: 'theme' },
+  pause: { env: 'ZOROFIN_WEB_UI_PAUSE_SCREEN', default: true },
+  // No file of its own: the pause-screen script reads html.zorofin-off-autopause.
+  autopause: { env: 'ZOROFIN_WEB_UI_AUTO_PAUSE', default: true, needs: 'pause' },
   livetv: { env: 'ZOROFIN_WEB_UI_LIVE_TV', default: true, needs: 'theme' },
   requests: { env: 'ZOROFIN_WEB_UI_REQUESTS', default: false, needs: 'theme' },
 });
@@ -62,6 +65,9 @@ function settingsFrom(env) {
     ? env.ZOROFIN_WEB_UI_COLORS : 'zorofin';
   return {
     dir: path.resolve(env.ZOROFIN_WEB_UI_DIR || path.join(__dirname, '..', '..', '..', 'web-ui')),
+    // Optional second folder for one server's own add-ons (the reference server keeps
+    // its private scripts here). Listed with the pack; a file here with the same name wins.
+    extraDir: env.ZOROFIN_WEB_UI_EXTRA_DIR ? path.resolve(env.ZOROFIN_WEB_UI_EXTRA_DIR) : '',
     features: featuresFrom(env),
     palette: targetFor(colors, (env.ZOROFIN_WEB_UI_ACCENT || '').trim()),
     logo: {
@@ -135,6 +141,7 @@ function manifestFor(names, features = {}, version, extraClasses = []) {
 function createWebUi(config, deps = {}) {
   const settings = deps.settings || settingsFrom(deps.env || process.env);
   const root = settings.dir;
+  const extraRoot = settings.extraDir || '';
   const features = settings.features || {};
   const palette = settings.palette || null;
   const logo = settings.logo || { mode: 'zorofin' };
@@ -152,13 +159,23 @@ function createWebUi(config, deps = {}) {
   const extraClasses = art ? ['zorofin-sports-art'] : [];
   let timer = null;
 
-  function files() {
-    let names;
+  function list(dir) {
+    if (!dir) return [];
     try {
-      names = fs.readdirSync(root, { withFileTypes: true }).filter(entry => entry.isFile()).map(entry => entry.name);
+      return fs.readdirSync(dir, { withFileTypes: true }).filter(entry => entry.isFile()).map(entry => entry.name);
     } catch (_) {
       return [];
     }
+  }
+
+  // The folder a served name comes from: the add-ons folder first, then the pack.
+  function locate(name) {
+    if (extraRoot && list(extraRoot).includes(name)) return path.join(extraRoot, name);
+    return path.join(root, name);
+  }
+
+  function files() {
+    const names = [...new Set([...list(root), ...list(extraRoot)])];
     if (logo.mode === 'none' && features.theme !== false && names.some(name => featureOf(name) === 'theme')) names.push(BRAND_FILE);
     return names;
   }
@@ -179,7 +196,7 @@ function createWebUi(config, deps = {}) {
   // Changes whenever a file, the colours or the logo change, so browsers can keep files until then.
   function version(names) {
     const parts = names.sort().map(name => {
-      const st = stat(path.join(root, name));
+      const st = stat(locate(name));
       return st ? `${name}:${st.size}:${st.mtimeMs}` : name;
     });
     for (const name of Object.keys(LOGO_SLOTS)) {
@@ -235,7 +252,7 @@ function createWebUi(config, deps = {}) {
       if (name === BRAND_FILE && logo.mode === 'none') return { status: 200, raw: Buffer.from(NO_LOGO_CSS), contentType: type, cacheControl: CACHE };
       const custom = customLogo(name);
       if (custom) return { status: 200, raw: fs.readFileSync(custom), contentType: imageType(custom), cacheControl: CACHE };
-      const file = path.join(root, name);
+      const file = locate(name);
       let st;
       try { st = fs.lstatSync(file); } catch (_) { return { status: 404, body: { error: 'Not found' } }; }
       if (!st.isFile() || st.size > MAX_FILE_BYTES) return { status: 404, body: { error: 'Not found' } };

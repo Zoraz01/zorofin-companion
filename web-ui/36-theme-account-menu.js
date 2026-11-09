@@ -18,6 +18,8 @@
     ];
     if (options && options.syncPlay) list.push({ key: 'together', label: 'Watch together' });
     if (options && options.teams) list.push({ key: 'teams', label: 'Your teams' });
+    // Pages from the Zorofin plugin's extras (Calendar, Catch Up), when the server has them on.
+    ((options && options.extra) || []).forEach(function (item) { if (item && item.key && item.label && typeof item.run === 'function') list.push(item); });
     list.push({ key: 'settings', label: 'Settings', pinned: true });
     return list;
   }
@@ -85,10 +87,11 @@
       var name = node('span', 'zam-name', 'Signed in'), where = node('span', 'zam-server', server);
       text.appendChild(name); if (server) text.appendChild(where);
       account.appendChild(avatar); account.appendChild(text); menu.appendChild(account);
-      actions({ syncPlay: visible(syncButton()), teams: typeof root.zorofinOpenTeams === 'function' }).forEach(function (action) {
+      var extra = typeof root.ZorofinMenuExtras === 'function' ? root.ZorofinMenuExtras() : [];
+      actions({ syncPlay: visible(syncButton()), teams: typeof root.zorofinOpenTeams === 'function', extra: extra }).forEach(function (action) {
         var item = node('button', 'zam-item' + (action.pinned ? ' zam-pinned' : ''), action.label);
         item.type = 'button'; item.setAttribute('role', 'menuitem'); item.dataset.action = action.key;
-        item.addEventListener('click', function () { run(action.key); });
+        item.addEventListener('click', function () { if (action.run) { close(); action.run(); } else run(action.key); });
         menu.appendChild(item);
       });
       backdrop.appendChild(menu); doc.body.appendChild(backdrop);

@@ -517,6 +517,46 @@ html.zoro-ui.layout-tv .zoroNotificationBackdrop .zoroNotificationItem p,html.zo
 html.zoro-ui.layout-tv .zoroNotificationCaughtUp .zoroNotificationCaughtUpTitle { font-size:24px; }
 html.zoro-ui.layout-tv .zoroNotificationBackdrop :is(.zoroNotificationAction,.zoroNotificationRead,.zoroNotificationMore) { min-height:56px; font-size:19px; }
 
+/* The apps' inbox rows: requests ready to watch (poster, jade status, chevron),
+   support replies that open in place when tapped, a Retry row and "Hidden (N)".
+   Rows are buttons, so reset the native button look first. */
+html.zoro-ui .zoroNotificationBackdrop button.zoroNotificationItem { display:block; width:100%; margin:0; font:inherit; color:#f5f7f5; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+html.zoro-ui .zoroNotificationBackdrop button.zoroNotificationItem:hover { background:#1a201d; }
+html.zoro-ui .zoroNotificationBackdrop button.zoroNotificationItem:focus-visible,html.zoro-ui .zoroNotificationBackdrop :is(.zoroNotificationHiddenToggle,.zoroNotificationRetry):focus-visible { outline:2px solid #d9f8e3; outline-offset:2px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationRequest { display:flex!important; align-items:center; gap:14px; padding:12px; }
+html.zoro-ui .zoroNotificationBackdrop .zoroNotificationRequest:disabled { cursor:wait; }
+html.zoro-ui .zoroNotificationPoster { flex:none; width:42px; height:63px; overflow:hidden; border-radius:6px; background:#253029; }
+html.zoro-ui .zoroNotificationPoster img { display:block; width:100%; height:100%; object-fit:cover; }
+html.zoro-ui .zoroNotificationRequestText { display:flex; flex:1; min-width:0; flex-direction:column; gap:5px; }
+html.zoro-ui .zoroNotificationRequestTitle { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:16px; font-weight:600; line-height:1.3; overflow-wrap:anywhere; }
+html.zoro-ui .zoroNotificationReady { font-size:13px; line-height:1.3; color:#72e79b; }
+html.zoro-ui .zoroNotificationRequest > .zoroShellIcon { flex:none; font-size:18px; color:#93a198; }
+html.zoro-ui .zoroNotificationReplyTitle { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; font-size:14px; font-weight:600; line-height:1.4; overflow-wrap:anywhere; }
+html.zoro-ui .zoroSupportReply .zoroNotificationBody,html.zoro-ui .zoroNotificationRef { display:block; margin-top:6px; font-size:14px; line-height:1.45; color:#bbc5bd; white-space:pre-wrap; overflow-wrap:anywhere; }
+html.zoro-ui .zoroNotificationRef[hidden] { display:none; }
+html.zoro-ui :is(.zoroNotificationHiddenToggle,.zoroNotificationRetry) { display:flex; align-items:center; gap:8px; width:100%; min-height:48px; margin:0; padding:0 14px; border:0; border-radius:14px; background:transparent; color:#93a198; font:inherit; font-size:15px; font-weight:600; text-align:left; cursor:pointer; }
+html.zoro-ui .zoroNotificationHiddenToggle { justify-content:space-between; }
+html.zoro-ui .zoroNotificationRetry { font-size:14px; font-weight:500; }
+html.zoro-ui :is(.zoroNotificationHiddenToggle,.zoroNotificationRetry):hover { background:#f5f7f50d; color:#f5f7f5; }
+html.zoro-ui :is(.zoroNotificationHiddenToggle,.zoroNotificationRetry) .zoroShellIcon { font-size:20px; }
+html.zoro-ui .zoroNotificationHidden { display:flex; flex-direction:column; gap:8px; }
+html.zoro-ui .zoroNotificationHidden[hidden] { display:none; }
+html.zoro-ui.layout-tv .zoroNotificationPoster { width:54px; height:81px; }
+html.zoro-ui.layout-tv .zoroNotificationRequestTitle { font-size:22px; }
+html.zoro-ui.layout-tv :is(.zoroNotificationReady,.zoroSupportReply .zoroNotificationBody,.zoroNotificationRef,.zoroNotificationReplyTitle) { font-size:19px; }
+html.zoro-ui.layout-tv :is(.zoroNotificationHiddenToggle,.zoroNotificationRetry) { min-height:60px; font-size:21px; }
+
+/* Unread count on the bell, like the apps: a small jade capsule on its top right. */
+html.zoro-ui :is(.zoroHomeAction[data-home-action=Notifications],[data-zoro-notifications])[data-zoro-unread] { position:relative; }
+html.zoro-ui .zoroHomeAction[data-home-action=Notifications][data-zoro-unread]::after { content:attr(data-zoro-unread); position:absolute; top:4px; right:2px; min-width:18px; height:18px; padding:0 5px; box-sizing:border-box; border-radius:9px; background:#42d779; color:#0d1210; font:700 11px/18px Inter,system-ui,sans-serif; text-align:center; pointer-events:none; }
+html.zoro-ui [data-zoro-notifications][data-zoro-unread]::after { content:attr(data-zoro-unread); position:absolute; top:50%; right:44px; min-width:20px; height:20px; margin-top:-10px; padding:0 6px; box-sizing:border-box; border-radius:10px; background:#42d779; color:#0d1210; font:700 12px/20px Inter,system-ui,sans-serif; text-align:center; pointer-events:none; }
+html.zoro-ui.layout-tv .zoroHomeAction[data-home-action=Notifications][data-zoro-unread]::after { min-width:24px; height:24px; border-radius:12px; font-size:14px; line-height:24px; }
+
+/* Search, like the iPhone app: a bold title and the green bar on row titles. */
+html.zoro-ui .zoroSearchHeading { font-weight:700; }
+html.zoro-ui .zoroSearchSection h2 { font-weight:700; }
+html.zoro-ui .zoroSearchSection h2::before { content:""; display:inline-block; width:3px; height:.82em; margin-right:.48em; border-radius:999px; background:var(--zoro-ui-accent-strong,#25b85f); vertical-align:-.04em; }
+
 /* Native suggestions must reserve space above the request footer. The pinned
    theme positions this list absolutely with a 50% width and nested scroller. */
 html.zoro-ui #searchPage .searchSuggestions { margin:28px 0 0; padding-inline:4%; text-align:left!important; }
@@ -571,6 +611,23 @@ html.zoro-ui.zoro-mobile-flow .alphaPicker-fixed { position:relative!important; 
 html.zoro-ui.zoro-mobile-flow .alphaPickerRow { display:flex!important; flex-direction:row!important; width:max-content; }
 html.zoro-ui.zoro-mobile-flow .alphaPickerButton { flex:0 0 44px; width:44px!important; min-width:44px; height:44px!important; min-height:44px; font-size:15px!important; border-radius:50%; }
 html.zoro-ui.zoro-mobile-flow .padded-right-withalphapicker { padding-right:4%!important; }
+/* Jellyfin 12 library pages on phones, like the iPhone app's Movies and Shows:
+   a large title, two posters per row with left-aligned titles, and no A–Z rail,
+   Play All, Shuffle or view-settings buttons. Filter, sort and paging stay. */
+html.zoro-ui.zoro-mobile-flow .alphaPicker-fixed-right { display:none!important; }
+html.zoro-ui.zoro-mobile-flow .MuiToolbar-dense .MuiTypography-h2 { font-size:28px; font-weight:700; letter-spacing:-.02em; }
+html.zoro-ui.zoro-mobile-flow .MuiToolbar-dense .MuiChip-root { display:none; }
+html.zoro-ui.zoro-mobile-flow .MuiToolbar-dense :is([aria-label="Play All"],[aria-label="Shuffle"],[aria-label="View settings"],[title="Play All"],[title="Shuffle"],[title="View settings"]) { display:none!important; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap:not(.zoroSearchGrid) { padding-inline:calc(4% - 6px)!important; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap > .card.portraitCard { width:50%!important; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap > .card.portraitCard .cardBox { margin:0 6px 18px; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap > .card.portraitCard :is(.cardFooter,.cardText) { text-align:left!important; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap > .card.portraitCard .cardText { padding-inline:2px; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap > .card.portraitCard .cardText-first { font-size:15px; font-weight:600; color:#f5f7f5; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap > .card.portraitCard .cardText-first a { color:inherit; }
+/* Title pages: the name sits left beside the poster, as in the iPhone app. */
+html.zoro-ui.zoro-mobile-flow #itemDetailPage .nameContainer :is(.itemName,h1) { text-align:left!important; }
+html.zoro-ui.zoro-mobile-flow .itemsContainer.vertical-wrap > .card.portraitCard .cardText-secondary { font-size:13px; color:#bbc5bd; }
 
 .zoroMobileHeroSlot { display:none; }
 html.zoro-ui.zoro-mobile-flow.zoro-native-home .zoroMobileHeroSlot { display:block; height:clamp(390px,120vw,470px); margin:0 4% 24px; pointer-events:none; }
