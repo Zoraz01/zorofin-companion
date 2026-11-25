@@ -1,6 +1,7 @@
 name: Release
 
-# Push a tag like v0.2.0 (it must match package.json). Publishes a GitHub
+# Push a tag like v0.2.0 (it must match package.json), or run this workflow by
+# hand on main to release package.json's version (it creates the tag). Publishes a GitHub
 # release with the notes from CHANGELOG.md. The container image for the same
 # version is built from the Zorofin monorepo (tag companion-v<version>) and
 # published as ghcr.io/zoraz01/zorofin-companion:<version> and :latest.
@@ -8,6 +9,7 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,24 +24,34 @@ jobs:
         with:
           node-version: 22
       - name: Check the tag matches package.json
+        id: version
         run: |
           declared=$(node -p "require('./package.json').version")
-          if [ "${GITHUB_REF_NAME#v}" != "$declared" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match package.json $declared"
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            tag="v$declared"
+          else
+            tag="$GITHUB_REF_NAME"
+          fi
+          if [ "${tag#v}" != "$declared" ]; then
+            echo "::error::Tag $tag does not match package.json $declared"
             exit 1
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - name: Test
         run: node --test
       - name: Release notes from CHANGELOG.md
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          awk -v v="${GITHUB_REF_NAME#v}" '
+          awk -v v="${TAG#v}" '
             $0 ~ "^## " v "( |$)" {on=1; next}
             on && /^## / {exit}
             on {print}
           ' CHANGELOG.md > notes.md
-          grep -q '[^[:space:]]' notes.md || { echo "::error::No CHANGELOG.md section for ${GITHUB_REF_NAME#v}"; exit 1; }
-          printf '\nImage: `ghcr.io/zoraz01/zorofin-companion:%s` (also `:latest`).\n' "${GITHUB_REF_NAME#v}" >> notes.md
+          grep -q '[^[:space:]]' notes.md || { echo "::error::No CHANGELOG.md section for ${TAG#v}"; exit 1; }
+          printf '\nImage: `ghcr.io/zoraz01/zorofin-companion:%s` (also `:latest`).\n' "${TAG#v}" >> notes.md
       - name: Publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --title "Zorofin companion ${GITHUB_REF_NAME#v}" --notes-file notes.md --verify-tag
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release create "$TAG" --title "Zorofin companion ${TAG#v}" --notes-file notes.md --target "$GITHUB_SHA"
