@@ -1,6 +1,6 @@
 # Zorofin companion
 
-Status: **early (v0.1.0)**. Modules shipping: `notifications`, `liveTvGuide`, `liveTvStreams`, `recommendations`, `webUi`.
+Status: **early (v0.2.0)**, see [CHANGELOG.md](CHANGELOG.md). Modules shipping: `notifications`, `liveTvGuide`, `liveTvSource`, `liveTvStreams`, `sportsEvents`, `recommendations`, `pickTogether`, `webUi`. Image: `ghcr.io/zoraz01/zorofin-companion:latest` (or pin `:0.2.0`).
 
 License: AGPL-3.0-only (see [LICENSE](LICENSE)); bundled third-party files are
 listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). "Zorofin" and the
@@ -19,8 +19,11 @@ the modules that benefit from isolation:
 | `notifications` | **Available** | A separate request-alert service |
 | `liveTvGuide` | **Available** | Hand-run guide enrichment scripts |
 | Channel logos | **Available** inside `liveTvGuide` | tv-logos matching plus your own "use this logo" rules |
+| `liveTvSource` | **Available** | A separate channel list and backup guide service |
 | `liveTvStreams` | **Available** | Telling viewers by hand which channel is using the Live TV stream |
+| `sportsEvents` | **Available** | Hunting for which channel has the game: live games from your own channels, with scores |
 | `recommendations` | **Available** (deterministic ranking; optional AI ranking with your own key) | Hand-made Home shelves |
+| `pickTogether` | **Available** (new) | Arguing about what to watch: a group swipes on their phones and sees the titles everyone liked |
 | `webUi` | **Available**; ships the Zorofin theme, Live TV pages, Requests hub (off by default) and web player | JavaScript Injector and custom CSS |
 | `recap` | Later | — |
 
@@ -373,7 +376,7 @@ pinned channel numbers belong in a private module.
 | `ZOROFIN_GUIDE_LOGO_COUNTRIES` | tv-logos country folders, default `united-states` (e.g. `united-states,united-kingdom`) |
 | `ZOROFIN_GUIDE_LOGO_OVERRIDES` | Comma-separated `Channel name=logo` rules. The logo is a tv-logos file name from any country (`nbc-4-washington-us.png`), an `https://` image, or `none`. A rule matches the channel name with or without a provider prefix like `US|`, and the longest matching name wins |
 | `ZOROFIN_GUIDE_MATCHUP_TITLES` | `0` to leave titles unchanged |
-| `ZOROFIN_GUIDE_REFRESH_MINUTES` | Default 30 |
+| `ZOROFIN_GUIDE_REFRESH_MINUTES` | Default 30. Between refreshes the guide also checks its source every 2 minutes with a HEAD and rebuilds at once when its ETag or Last-Modified changes (the companion's own Sports guide sends them), so new games reach Jellyfin within minutes |
 
 Lookups are cached and rate-limited (TVmaze 60 new shows per refresh,
 TheSportsDB 6 new matchups per refresh, spaced for its free tier; the tv-logos
@@ -479,7 +482,8 @@ carry them.
 - **League packs** (data in `src/modules/sportsEvents/packs.js`, so a new
   league is a new entry): NFL, NBA, MLB, NHL, MLS, WNBA; college football (FBS)
   and men's/women's college basketball; Premier League, LaLiga, Serie A,
-  Bundesliga, Ligue 1; Champions League, Europa League, FA Cup; FIFA World Cup
+  Bundesliga, Ligue 1; Champions League (`ucl`), Women's Champions League
+  (`uwcl`), Europa League, FA Cup; FIFA World Cup
   (men's and women's), Euro and Copa América. Default: `nba, nfl, cfb, mlb,
   nhl, epl, ucl, mls`, in that order of priority (like the apps' Home row).
   Olympics (sessions rather than matches) is not built yet.
@@ -569,21 +573,66 @@ web and the apps show the same art. Team crests and game photos still come from
 
 ## Module: recommendations
 
-A personal "Recommended to request" row of movies that are not on the server
-and not requested yet. Taste comes from the viewer's completed and favorite
-movies, their own Seerr requests (automated requests are ignored) and their
-feedback. Candidates come from Seerr's movie recommendations, so no separate
-TMDB key is needed. A viewer needs at least three completed movies; otherwise
-the row stays hidden. There is no generic fallback.
+A personal "Recommended to request" row of movies and shows that are not on
+the server and not requested yet. Taste comes from what the viewer finished
+recently (movies, and shows with a few watched episodes), their favorites, their
+own Seerr requests (automated requests are ignored), Catch Up likes, their own
+Pick Together likes and skips (weaker, private to them) and their feedback. Candidates come from Seerr's TMDB recommendations, so no separate TMDB
+key is needed. A viewer needs three titles of taste (finished movies plus shows
+with at least three watched episodes) or one Catch Up like; otherwise the row
+stays hidden.
 
-Ranking is deterministic by default: titles suggested by several of the
-viewer's favorite movies rise to the top, then rating and vote count break ties.
+Ranking is deterministic by default:
 
-**Optional AI ranking** (off unless the operator turns it on, with their own
-key). The AI only reorders the top 60 requestable candidates and adds a short
-reason to each; ids it invents are dropped. If the AI call fails or returns
-fewer than ten usable items, the feed uses the standard ranking. The feed
+- Recent watching counts most. Favorites, requests and likes fade with age, so
+  one old favorite cannot steer the whole row.
+- Titles that several taste titles point to rise to the top; one seed can lead
+  at most four picks and one franchise at most two before the overflow.
+- Picks that match the viewer's usual genres rise; titles far older than what
+  they usually watch, and kids' titles for viewers who never watch them, sink.
+- TMDB's "similar" list is only used for a seed with almost no recommendations,
+  because it is mostly keyword noise. Recuts and box sets are left out.
+- Viewers who mostly watch shows also get movies: popular movies in their top
+  genres fill in behind anything a real seed suggests.
+
+Each item has a short `reason` ("Because you watched ..."). Items carry
+`mediaType` (`movie` or `tv`). `GET feed` returns movies only unless the app
+asks for `?types=movie,tv`, so older apps never receive a show id they would
+request as a movie. Shows need the plugin's generic companion route
+(`/Zorofin/Companion/recommendations/feed?types=movie,tv`), which forwards the
+query; `/support/recommendations` stays movie-only.
+
+**Optional AI picks** (off unless the operator turns it on, with their own key).
+The AI gets the viewer's history as titles, years, genres and episode counts,
+plus the list of titles already on the server, and suggests 30 movies and 15
+shows by name with a short reason. Each suggestion is looked up in Seerr: only
+real, released, requestable titles the viewer hasn't watched or requested are
+kept, so it cannot invent a title or an id. Verified AI picks lead the row and
+the TMDB-ranked picks fill in behind them. AI picks that turn out to be on the
+server already go to Home's "Recommended for you" instead. If the AI call fails
+or its reply has no usable picks, the feed uses the standard ranking. The feed
 reports `ranking: "ai"` or `"standard"`.
+
+**Home picks** (`GET library`). For the plugin's "Recommended for you" and
+"Because you watched" rows: TMDB's recommendations for the viewer's six
+strongest recent titles, kept only when they are on the server, visible to the
+viewer and unwatched. A seed with fewer than six such matches is topped up from
+library titles that share its director or at least two cast members, then from
+titles sharing its genres, with release year breaking close calls. Answers
+`{ schemaVersion, state, forYou: [itemId], because: [{ seedItemId, seedName, itemIds }] }`.
+The plugin uses a row only when it has at least four unwatched picks, and
+otherwise keeps its own genre-based rows, so servers without the companion
+look the same as before.
+
+The AI runs at most once a day per viewer. In between, feeds still refresh
+when taste changes, reusing that day's AI picks re-checked against anything
+watched, requested or hidden since.
+
+Anthropic requests omit sampling parameters for compatibility with newer Claude
+models. A standard feed produced during an AI outage is retried after six hours;
+successful AI feeds retain the normal weekly reuse window. A ranking-version
+change refreshes older eligible feeds on their next request, preserving feedback
+and watch history.
 
 | Variable | Notes |
 | --- | --- |
@@ -592,21 +641,60 @@ reports `ranking: "ai"` or `"standard"`.
 | `ZOROFIN_RECOMMENDATIONS_AI_MODEL` | Defaults: `claude-haiku-4-5` / `gpt-4o-mini` |
 | `ZOROFIN_RECOMMENDATIONS_AI_URL` | Custom endpoint, e.g. OpenRouter or a local Ollama `http://ollama:11434/v1/chat/completions` |
 
-Titles and overviews go to the chosen AI service with the viewer's top watched
-and favorite titles (no names, emails or Jellyfin ids).
+Titles, years, genres and episode counts go to the chosen AI service, with the
+titles already on the server (no names, emails or Jellyfin ids).
 
 Needs `ZOROFIN_SEERR_URL`, `ZOROFIN_SEERR_API_KEY`, `ZOROFIN_JELLYFIN_URL` and
 `ZOROFIN_JELLYFIN_API_KEY`.
 
 | Route | Purpose |
 | --- | --- |
-| `GET feed` | `{ state, items }`; `state` is `preparing`, `not_enough_history` or `ready` |
-| `POST feedback` | `{ "tmdbId": n, "action": "not_interested" \| "seen" \| "requested" \| "more_like_this" }` |
+| `GET feed` | `{ state, items }`; `state` is `preparing`, `not_enough_history` or `ready`. `?types=movie,tv` includes shows |
+| `GET library` | Home picks from the viewer's library (see above) |
+| `POST feedback` | `{ "tmdbId": n, "mediaType": "movie" \| "tv" (default movie), "action": "not_interested" \| "seen" \| "requested" \| "more_like_this" }` |
 
 Feeds are built on first use, rechecked after 6 hours and rebuilt at least
 weekly or when the viewer's taste changes. If Seerr fails, the last good feed
 stays. Requesting a title uses the plugin's Requests routes, so Seerr
 permissions and quotas still apply.
+
+## Module: pickTogether
+
+A small group (up to eight voters) picks what to watch together. Someone
+starts a session for **Movies** or **Shows** (never mixed); others join with a
+six-character code or link. Everyone swipes Like or Skip on their own phone or
+browser. A title everyone liked is a match; with three or more people, titles
+all but one liked are listed as "almost". Results show counts, never who
+skipped. A TV can host as a display: it shows the code, who joined and the
+matches, but has no vote.
+
+- **Library only.** Every title is already on the server and visible to every
+  voter's own account, so library access and parental limits apply.
+- **Personal order, shared pool.** Each person sees the same titles in their own
+  order, ranked from their watch history, favorites, Catch Up likes (from the
+  `recommendations` module's taste file, when present) and, if Seerr is
+  configured, their own requests.
+- **Nothing else changes.** Group swipes do not touch Catch Up likes, watched
+  state, favorites or requests.
+- Needs `ZOROFIN_JELLYFIN_URL` and `ZOROFIN_JELLYFIN_API_KEY`. Seerr
+  (`ZOROFIN_SEERR_URL`, `ZOROFIN_SEERR_API_KEY`) is optional.
+- Sessions are kept in `pickTogether/sessions.json` in the data folder, expire
+  after 3 idle hours, and ended sessions stay readable for 30 minutes.
+
+Routes, under `/Zorofin/Companion/pickTogether/` through the plugin (clients
+poll the session about every 2 seconds while it is on screen):
+
+| Route | Purpose |
+| --- | --- |
+| `POST sessions` `{ kind: "movie"\|"series", display?, filters?: { maxRuntimeMinutes } }` | Start a session; returns its state with `code` and your `seat` |
+| `POST join` `{ code, seatName? }` | Join by code (`seatName` adds a second person on the same account) |
+| `GET sessions/{id}?since={version}&seat={seat}` | State, or `{ unchanged: true }` |
+| `GET sessions/{id}/deck?seat={seat}` | This seat's remaining cards, with a short reason each |
+| `POST sessions/{id}/swipes` `{ itemId, choice: "like"\|"skip", seat? }` | Record one swipe; returns `match` when this swipe completed one |
+| `POST sessions/{id}/start`, `next-round`, `end`, `remove` | Host controls |
+| `POST sessions/{id}/leave` | Leave |
+
+Design notes: `docs/PICK_TOGETHER.md` in the source repository.
 
 ## Module: webUi
 
@@ -639,6 +727,18 @@ and adds the listed styles and scripts. Files come from one flat folder,
   | Live TV | `NN-livetv-*` | Live TV pages and guide (needs the theme) | `ZOROFIN_WEB_UI_LIVE_TV` | on |
   | Requests hub | `NN-requests-*` | Requests hub (needs the theme and Seerr set up in the plugin's Connect step) | `ZOROFIN_WEB_UI_REQUESTS` | off |
 
+- **Reviewed web refinements**: `branding/zorofin-web-ux.*` names native
+  library/guide controls, adds optional multi-sport team suggestions to the
+  existing explicit-Save dialog, and uses quiet labels beneath native title
+  icons. `branding/zorofin-episode-nav.*` keeps season context through loading,
+  empty and failed results. `branding/zorofin-search.js` adds server-paged typed
+  results; empty Search keeps its existing recommendations. The player part
+  includes `branding/zorofin-player-browser.*`, with account/device-scoped
+  episodes and current-channel schedules. Episode switching uses Jellyfin’s
+  existing playback manager; unsupported builds retain a native detail link.
+  Regenerate with `node tools/build-companion-web-ui.cjs`; check freshness with
+  `node tools/build-companion-web-ui.cjs --check`. See the
+  [behavior contract and verification commands](../../docs/design/PLUGIN_WEB_UX_HANDOFF_2026_11.md).
 - **Requests hub** (`branding/zorofin-requests.js`): talks to the plugin's
   `/Zorofin/Requests` routes as the signed-in viewer, so Jellyfin Enhanced
   isn't needed. Seerr's address and key live in the plugin's Connect step;
@@ -666,7 +766,8 @@ and adds the listed styles and scripts. Files come from one flat folder,
   Home sports row gets game photos and team crests. Every 30 minutes (at most
   every 10) it reads the next two days of NFL, NBA, MLB, NHL, Premier League,
   Championship, Champions League, Europa League, Conference League, Serie A,
-  Ligue 1 and Women's Super League fixtures from ESPN's public scoreboard,
+  Ligue 1, Women's Super League and Women's Champions League fixtures from
+  ESPN's public scoreboard,
   then looks up a dated game photo on TheSportsDB (with
   `ZOROFIN_GUIDE_SPORTSDB_KEY` if set, otherwise its free public key) and
   falls back to the two ESPN team crests. Only PNG and JPEG from those hosts
@@ -752,6 +853,40 @@ Zorofin repository.
 The files load before sign-in, so they are served on the public route
 (`GET /v1/public/webUi/{file}`) and must not contain viewer data or secrets.
 Signed-in features call other modules through the plugin's bridge as usual.
+
+### Updating scoped web assets without a restart
+
+For a static UI patch, an operator can use the existing
+`ZOROFIN_WEB_UI_EXTRA_DIR` mount to override only the reviewed CSS/JS files.
+The plugin still delivers them through its normal manifest and loader. This
+persists across container recreation without changing the runtime image or
+interrupting sessions. It does not update companion modules or plugin binaries.
+
+From the main repository, `tools/deploy-plugin-web-ui.cjs` defaults to a
+read-only plan. Supply the reviewed base commit, explicit asset filenames,
+existing mounted extra directory, private backup directory, and the plugin's
+public UI base URL (ending in `/`). Use a clean candidate containing current
+remote main. For example, with those operator values set locally:
+
+```sh
+node tools/deploy-plugin-web-ui.cjs --base "$UI_BASE_COMMIT" --files "$UI_ASSET_FILES" --extra-dir "$UI_EXTRA_DIR" --backup-dir "$UI_BACKUP_DIR" --public-url "$UI_PUBLIC_URL"
+# Repeat with --apply after reviewing the plan.
+node tools/deploy-plugin-web-ui.cjs --rollback "$UI_RECEIPT_FILE"
+# Repeat rollback with --apply to restore its exact scoped assets.
+```
+
+The tool checks the live baseline before writing, backs up existing overrides,
+writes new dependencies before their callers, verifies every changed asset
+through the plugin route, and compares all unrelated served assets. A failure
+attempts a scoped rollback and preserves concurrent operator edits. Receipts
+and backups stay outside Git. Run its tests with
+`npm --prefix tools/web-ui-tests ci && npm --prefix tools/web-ui-tests test`.
+Existing tabs keep their loaded scripts; a reload gets the new manifest version.
+
+When a later image incorporates the patch, compare its baked files to these
+overrides and retire matching managed overrides in a reviewed maintenance step.
+An extra-directory file wins over a same-named image file, so leaving an old
+override indefinitely would mask later image updates. Preserve private add-ons.
 
 ## Private modules
 

@@ -1,14 +1,15 @@
 /* Zorofin detail and Home extras (zorofin-detail-extras.js). */
-.zoroDetailExtras { display:flex; flex-direction:column; gap:10px; margin:12px 0 4px; }
-.zoroDetailExtras .zde-ratings { display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0; list-style:none; }
-.zoroDetailExtras .zde-rating { display:inline-flex; align-items:center; gap:8px; min-height:32px; padding:0 12px; border-radius:999px; background:#ffffff14; border:1px solid #ffffff1f; font-size:14px; }
-.zoroDetailExtras .zde-source { color:#f4f7f5b3; font-weight:600; }
-.zoroDetailExtras .zde-rating strong { font-weight:750; }
-.zoroDetailExtras .zde-rating[data-source="imdb"] .zde-source { color:#f5c518; }
-.zoroDetailExtras .zde-out { background:transparent; border-color:transparent; padding:0 4px; }
+.zoroDetailExtras { display:flex; flex-direction:column; gap:10px; margin:2px 0 4px; }
+.zoroDetailExtras .zde-ratings { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 0; margin:0; padding:0; list-style:none; font-size:inherit; line-height:1.5; color:var(--zoro-detail-muted, #f4f7f5a6); }
+.zoroDetailExtras .zde-rating { display:inline-flex; align-items:baseline; }
+.zoroDetailExtras .zde-rating + .zde-rating::before { content:"·"; margin:0 .7em; opacity:.6; }
+.zoroDetailExtras .zde-ratings .zde-rating > * { display:inline-flex; align-items:baseline; gap:.4em; }
+.zoroDetailExtras .zde-source { font-weight:500; }
+.zoroDetailExtras .zde-value { color:var(--zoro-detail-copy, #f4f7f5); font-weight:650; font-variant-numeric:tabular-nums; }
+.zoroDetailExtras .zde-ratings a:hover .zde-source, .zoroDetailExtras .zde-ratings a:focus-visible .zde-source { color:#42d779; }
 .zoroDetailExtras a { color:inherit; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
 .zoroDetailExtras a .material-icons { font-size:16px; }
-.zoroDetailExtras a:hover, .zoroDetailExtras a:focus-visible { color:#42d779; }
+.zoroDetailExtras .zde-arr a:hover, .zoroDetailExtras .zde-arr a:focus-visible { color:#42d779; }
 .zoroDetailExtras .zde-arr { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:14px; }
 .zoroDetailExtras .zde-arr-link { min-height:32px; padding:0 12px; border-radius:999px; border:1px solid #42d77966; color:#42d779 !important; font-weight:650; }
 .zoroDetailExtras .zde-tag { padding:3px 10px; border-radius:999px; background:#1f3b2a; color:#c6f5d6; font-size:12px; font-weight:650; }

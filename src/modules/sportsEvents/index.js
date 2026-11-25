@@ -247,9 +247,11 @@ function createSportsEvents(config, deps = {}) {
         const guideId = guideIdOf(entry);
         const slot = programme(guideId, game, ended[game.id]);
         const taken = slots.get(guideId) || [];
+        // The same game under two broadcaster names ("MNMT" and "NBCSN") is one listing.
+        if (taken.some(other => other.game.id === game.id)) continue;
         const clash = taken.find(other => other.start < slot.stop && slot.start < other.stop);
         if (clash) { clash.clash = true; continue; }
-          taken.push({ ...slot, game, entry });
+        taken.push({ ...slot, game, entry });
         slots.set(guideId, taken);
       }
     }

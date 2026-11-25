@@ -1,7 +1,8 @@
 /* Zorofin detail and Home extras from the Zorofin plugin, in place of
  * Jellyfin Enhanced's:
- *  - Ratings: IMDb, TMDB, Rotten Tomatoes, Metacritic, Letterboxd and more
- *    (from MDBList, with the operator's key) under a movie or show's details.
+ *  - Ratings: up to four of IMDb, Rotten Tomatoes, Audience, Metacritic,
+ *    Letterboxd and MAL (from MDBList, with the operator's key) as one quiet
+ *    line under a title's details, styled like the line above it.
  *  - Sonarr / Radarr: for administrators, a link to the title in Sonarr or
  *    Radarr and its tags.
  *  - Remove from Continue Watching: a button on each Continue Watching card
@@ -14,7 +15,11 @@
   else if (root && root.document) api.mount();
 }(typeof window === 'undefined' ? null : window, function (root) {
   'use strict';
-  var SHORT = { imdb: 'IMDb', tmdb: 'TMDB', tomatoes: 'Tomatometer', popcorn: 'Audience', metacritic: 'Metacritic', letterboxd: 'Letterboxd', trakt: 'Trakt', myanimelist: 'MAL' };
+  var SHORT = { imdb: 'IMDb', tmdb: 'TMDB', tomatoes: 'Rotten Tomatoes', popcorn: 'Audience', metacritic: 'Metacritic', letterboxd: 'Letterboxd', trakt: 'Trakt', myanimelist: 'MAL' };
+  // A few well-known critics' and viewers' scores, in this order. TMDB and
+  // Trakt are left out: the star rating already on the page covers them.
+  var ORDER = ['imdb', 'tomatoes', 'popcorn', 'metacritic', 'letterboxd', 'myanimelist'];
+  var MAX = 4;
 
   // "8.7", "93%", "73" or "4.1" depending on the source's own scale.
   function display(rating) {
@@ -24,6 +29,12 @@
     if (rating.source === 'metacritic') return String(Math.round(v));
     if (rating.source === 'letterboxd') return v.toFixed(1) + ' / 5';
     return v.toFixed(1);
+  }
+  // The ratings worth showing, in ORDER, at most MAX, one per source.
+  function pick(ratings) {
+    var by = {};
+    (ratings || []).forEach(function (r) { if (r && ORDER.indexOf(r.source) >= 0 && display(r) && !by[r.source]) by[r.source] = r; });
+    return ORDER.filter(function (k) { return by[k]; }).map(function (k) { return by[k]; }).slice(0, MAX);
   }
   function itemIdFrom(hash) {
     var m = /^#\/details\?(?:.*&)?id=([0-9a-fA-F-]{32,36})(?:&|$)/.exec(String(hash || ''));
@@ -59,15 +70,17 @@
         if (ex.ratings) {
           root.ZorofinExtras.api('Zorofin/Extras/Ratings/' + id).then(function (r) {
             if (token !== state.token || !r || !r.ratings || !r.ratings.length) return;
+            var picked = pick(r.ratings);
+            if (!picked.length) return;
             var list = make('ul', 'zde-ratings'); list.setAttribute('aria-label', 'Ratings');
-            r.ratings.forEach(function (rating) {
-              var text = display(rating); if (!text) return;
+            picked.forEach(function (rating) {
               var li = make('li', 'zde-rating'); li.dataset.source = rating.source;
-              li.append(make('span', 'zde-source', SHORT[rating.source] || rating.label), make('strong', '', text));
-              li.title = rating.label + (rating.votes ? ' · ' + Number(rating.votes).toLocaleString() + ' votes' : '');
-              list.appendChild(li);
+              var label = rating.source === 'imdb' && r.imdbUrl ? make('a', 'zde-link') : make('span');
+              if (label.tagName === 'A') { label.href = r.imdbUrl; label.target = '_blank'; label.rel = 'noopener noreferrer'; }
+              label.append(make('span', 'zde-source', SHORT[rating.source] || rating.label), make('span', 'zde-value', display(rating)));
+              label.title = rating.label + (rating.votes ? ' · ' + Number(rating.votes).toLocaleString() + ' votes' : '');
+              li.appendChild(label); list.appendChild(li);
             });
-            if (r.imdbUrl) { var more = make('a', 'zde-link', 'IMDb'); more.href = r.imdbUrl; more.target = '_blank'; more.rel = 'noopener noreferrer'; more.prepend(icon('open_in_new')); list.appendChild(make('li', 'zde-rating zde-out')).appendChild(more); }
             box.prepend(list); place();
           }, function () { /* no ratings is fine */ });
         }
@@ -162,5 +175,5 @@
     schedule();
   }
 
-  return { mount: mount, display: display, itemIdFrom: itemIdFrom };
+  return { mount: mount, display: display, pick: pick, itemIdFrom: itemIdFrom };
 }));

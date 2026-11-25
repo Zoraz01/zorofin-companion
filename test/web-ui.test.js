@@ -96,6 +96,8 @@ test('colours: greens follow the chosen accent, other colours stay', () => {
   const ocean = targetFor('ocean');
   const css = '.a{color:#42d779;background:rgba(37, 184, 95, .18);border:#fff;box-shadow:0 0 0 #111513} .b{color:#ff0000;fill:rgb(66,215,121)}';
   const out = recolor(css, ocean);
+  assert.equal(recolor('color:#72e79b;background:#1cb956;--jf-palette-primary-mainChannel: 114 231 155', ocean),
+    'color:#3d9cff;background:#3d9cff;--jf-palette-primary-mainChannel: 61 156 255');
   assert.match(out, /border:#fff/);
   assert.match(out, /color:#ff0000/);
   const [accent] = out.match(/#[0-9a-f]{6}/);

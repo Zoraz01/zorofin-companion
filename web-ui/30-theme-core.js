@@ -514,7 +514,7 @@
       toolbar.appendChild(select);page.insertBefore(toolbar,page.firstChild);page.classList.add('zoroContextPage');
     }else select=toolbar.querySelector('select');
     select._zoroTabs=tabs;
-    var labels=tabs.map(function(e){var label=e.textContent.trim();return library&&library.key==='livetv'&&label==='Programs'?'On now':label;}),key=JSON.stringify(labels);
+    var labels=tabs.map(function(e){var label=e.textContent.trim();return label;}),key=JSON.stringify(labels);
     if(select.dataset.options!==key){select.replaceChildren();tabs.forEach(function(tab,i){var option=make('option','',labels[i]);option.value=String(i);option.disabled=tab.disabled;select.appendChild(option);});select.dataset.options=key;}
     var selected=tabs.findIndex(function(e){return e.classList.contains('emby-tab-button-active')||e.getAttribute('aria-selected')==='true';});
     if(selected>=0)select.value=String(selected);
@@ -585,7 +585,7 @@
   // that are ready to watch, then support replies. Rows are marked read once
   // they have been on screen for a moment; read rows stay put while the panel
   // is open and move under "Hidden" the next time it opens.
-  var inbox={key:'',at:0,pending:null,data:null,noReplies:false};
+  var inbox={key:'',at:0,pending:null,data:null,noReplies:false,noReads:false};
   function viewer(){try{var c=root.ApiClient;return c&&c.getCurrentUserId()?String(c.serverId())+':'+String(c.getCurrentUserId()):'';}catch(_){return '';}}
   function saved(name,fallback){try{var v=JSON.parse(root.localStorage.getItem('zorofin-notifications:'+name+':'+viewer())||'null');return v==null?fallback:v;}catch(_){return fallback;}}
   function save(name,value){try{root.localStorage.setItem('zorofin-notifications:'+name+':'+viewer(),JSON.stringify(value));}catch(_){/* private mode */}}
@@ -595,6 +595,17 @@
   // Requests come from the Zorofin plugin; the reference server's older Requests proxy has no ready list.
   function requestsOn(){return !html.classList.contains('zorofin-off-requests')&&Boolean(root.ZorofinWeb||root.ZorofinRequestsSource==='plugin');}
   function getJson(url,signal){return root.fetch(url,{headers:headers(),signal:signal,cache:'no-store',redirect:'error'}).then(function(r){if(r.status===404)return null;if(!r.ok)throw Error(String(r.status));return r.json();});}
+  // Read state is kept per account by the Zorofin plugin (notificationReads), so a notice read here is not
+  // new in the apps, and the other way round. Without the plugin it stays in this browser only.
+  function replyKey(n){return String(n&&n.id||'')+'|'+String(n&&n.updatedAt||'');}
+  function readState(d){return d&&Array.isArray(d.requests)&&Array.isArray(d.replies)?{initialized:d.initialized===true,requests:d.requests.filter(function(id){return id>0;}),replies:d.replies.map(String)}:null;}
+  function postReads(body){
+    if(inbox.noReads)return Promise.resolve(null);
+    var key=identity(),h=headers();h['Content-Type']='application/json';
+    return root.fetch(serverUrl('Zorofin/Notifications/Read'),{method:'POST',headers:h,body:JSON.stringify(body),cache:'no-store',redirect:'error'})
+      .then(function(r){if(!r.ok)throw Error(String(r.status));return r.json();})
+      .then(function(d){var st=readState(d);if(st&&inbox.data&&inbox.key===key)inbox.data.reads=st;return st;},function(){return null;/* the notice is marked again next time it is seen */});
+  }
   function loadInbox(force){
     var key=identity();if(!key)return Promise.resolve(null);
     if(key!==inbox.key){inbox={key:key,at:0,pending:null,data:null,noReplies:false};}
@@ -604,15 +615,24 @@
     var promise=Promise.all([
       messages?messages.current(force).catch(function(){return null;}):null,
       inbox.noReplies?{notifications:[]}:getJson('/support/notifications',controller.signal).then(function(d){if(d===null){inbox.noReplies=true;return {notifications:[]};}return d;},function(){return false;}),
-      requestsOn()?getJson(serverUrl('Zorofin/Requests/activity?userOnly=true&take=50&skip=0&filter=available'),controller.signal).catch(function(){return false;}):null
+      requestsOn()?getJson(serverUrl('Zorofin/Requests/activity?userOnly=true&take=50&skip=0&filter=available'),controller.signal).catch(function(){return false;}):null,
+      inbox.noReads?null:getJson(serverUrl('Zorofin/Notifications/Read'),controller.signal).then(function(d){if(d===null)inbox.noReads=true;return readState(d);},function(){return null;})
     ]).then(function(r){
       if(key!==identity())return null;
-      var replies=r[1]&&Array.isArray(r[1].notifications)?r[1].notifications.filter(function(n){return n&&n.message;}):[];
+      var reads=r[3]||null,readReplies=reads?reads.replies:[];
+      var replies=r[1]&&Array.isArray(r[1].notifications)?r[1].notifications.filter(function(n){return n&&n.message&&readReplies.indexOf(replyKey(n))<0;}):[];
       var ready=r[2]&&Array.isArray(r[2].requests)?r[2].requests.filter(function(q){return q&&q.id>0&&q.tmdbId>0&&q.title&&q.mediaStatus==='Available'&&[2,5].indexOf(q.requestStatus)>=0;}):[];
       // The first visit starts from a clean slate instead of listing every past request as new.
-      var read=saved('requests',null);
-      if(r[2]&&!read){read=ready.map(function(q){return q.id;});save('requests',read);}
-      inbox.data={message:r[0]||null,replies:replies,requests:ready,readRequests:read||[],failed:r[1]===false||r[2]===false};inbox.at=Date.now();badge();return inbox.data;
+      var local=saved('requests',null),read=local;
+      if(r[2]&&!read&&!(reads&&reads.initialized)){read=ready.map(function(q){return q.id;});save('requests',read);}
+      if(reads){
+        // The account's list wins; this browser adds what it had already read before the list existed.
+        var mine=(local||[]).filter(function(id){return reads.requests.indexOf(id)<0&&ready.some(function(q){return q.id===id;});});
+        if(!reads.initialized&&r[2])mine=(read||[]).filter(function(id){return reads.requests.indexOf(id)<0;});
+        read=reads.requests.concat(mine);
+        if(r[2]&&(!reads.initialized||mine.length))postReads({requests:mine.slice(-500),replies:[],initialize:true});
+      }
+      inbox.data={message:r[0]||null,replies:replies,requests:ready,readRequests:read||[],reads:reads,failed:r[1]===false||r[2]===false};inbox.at=Date.now();badge();return inbox.data;
     }).finally(function(){root.clearTimeout(timer);inbox.pending=null;});
     inbox.pending=promise;return promise;
   }
@@ -699,7 +719,11 @@
       var text=make('span','zoroNotificationRequestText'),status=make('span','zoroNotificationReady',q.is4k?'Ready to watch · 4K':'Ready to watch');
       text.append(make('span','zoroNotificationRequestTitle',q.title),status);row.append(poster,text,icon('chevron_right'));
       row.setAttribute('aria-label',q.title+', '+(q.is4k?'4K ':'')+'ready to watch. Open title');
-      function markRead(){var read=saved('requests',[]);if(read.indexOf(q.id)<0){read.push(q.id);save('requests',read.slice(-500));}if(inbox.data)inbox.data.readRequests=read;badge();}
+      function markRead(){
+        var read=saved('requests',[]);if(read.indexOf(q.id)<0){read.push(q.id);save('requests',read.slice(-500));}
+        if(inbox.data&&inbox.data.readRequests.indexOf(q.id)<0)inbox.data.readRequests=inbox.data.readRequests.concat([q.id]);badge();
+        postReads({requests:[q.id],replies:[]});
+      }
       row.addEventListener('click',async function(){
         if(row.disabled)return;row.disabled=true;status.textContent='Opening…';
         try{
@@ -727,6 +751,7 @@
         var history=saved('replies',[]).filter(function(h){return h.id!==n.id;});history.unshift({id:String(n.id),affectedMedia:String(n.affectedMedia||n.issueType||'').slice(0,200),message:String(n.message||'').slice(0,4000)});save('replies',history.slice(0,20));
         if(inbox.data)inbox.data.replies=inbox.data.replies.filter(function(r){return r.id!==n.id;});badge();
         root.fetch('/support/notifications/'+encodeURIComponent(n.id)+'/read',{method:'POST',headers:headers(),redirect:'error'}).catch(function(){/* the reply comes back next time */});
+        if(n.updatedAt)postReads({requests:[],replies:[{id:String(n.id),updatedAt:String(n.updatedAt)}]});
       });
       return row;
     }
@@ -1063,9 +1088,10 @@
   function card(item,s){
     var a=node('a','zoroBrowseCard focusable');a.href='#/details?id='+encodeURIComponent(item.Id)+'&serverId='+encodeURIComponent(s.client.serverId());a.dataset.id=item.Id;
     a.setAttribute('aria-label',[item.Name,item.ProductionYear,item.Type==='Series'?'Show':'Movie'].filter(Boolean).join(', '));
-    var tags=item.ImageTags||{},type=tags.Thumb?'Thumb':item.BackdropImageTags&&item.BackdropImageTags.length?'Backdrop':'Primary';
+    // Discovery rows are movies and shows, so they use posters like the apps.
+    var tags=item.ImageTags||{},type=tags.Primary?'Primary':tags.Thumb?'Thumb':item.BackdropImageTags&&item.BackdropImageTags.length?'Backdrop':'Primary';
     var tag=type==='Backdrop'?item.BackdropImageTags[0]:tags[type],art=node(tag?'img':'span','zoroBrowsePoster');
-    if(tag){art.alt='';art.width=480;art.height=270;art.loading='lazy';art.decoding='async';art.src=s.client.getImageUrl(item.Id,{type:type,tag:tag,maxWidth:640,quality:85});}
+    if(tag){art.alt='';art.width=type==='Primary'?320:480;art.height=type==='Primary'?480:270;art.loading='lazy';art.decoding='async';art.src=s.client.getImageUrl(item.Id,{type:type,tag:tag,maxWidth:640,quality:85});}
     var artwork=node('span','zoroBrowseArtwork');artwork.appendChild(art);
     if(Number.isFinite(item.CommunityRating)){var rating=node('span','zoroBrowseRating');rating.append(node('span','','★'),doc.createTextNode(' '+item.CommunityRating.toFixed(1)));rating.setAttribute('aria-label','Rating '+item.CommunityRating.toFixed(1));artwork.appendChild(rating);}
     a.append(artwork,node('strong','zoroBrowseTitle',item.Name),node('span','zoroBrowseMeta',item.ProductionYear||''));
@@ -1074,7 +1100,7 @@
   function appendRow(s,lane,items){
     var key=rowKey(lane.title),existing=s.rowMap.get(key);
     if(existing){var ids=new Set(Array.from(existing.querySelectorAll('.zoroBrowseCard')).map(function(e){return e.dataset.id;}));items.forEach(function(item){if(!ids.has(item.Id))existing.querySelector('.zoroBrowseTrack').appendChild(card(item,s));});return false;}
-    var row=node('section','zoroBrowseRow verticalSection');var titleBar=node('div','sectionTitleContainer sectionTitleContainer-cards');var heading=node('h2','sectionTitle sectionTitle-cards',lane.title.replace(/\b(movies|shows)$/i,function(s){return s.charAt(0).toUpperCase()+s.slice(1);} ));heading.id='zoroBrowseTitle'+(++s.serial);row.setAttribute('aria-labelledby',heading.id);
+    var row=node('section','zoroBrowseRow verticalSection zoroPosterRow');var titleBar=node('div','sectionTitleContainer sectionTitleContainer-cards');var heading=node('h2','sectionTitle sectionTitle-cards',lane.title.replace(/\b(movies|shows)$/i,function(s){return s.charAt(0).toUpperCase()+s.slice(1);} ));heading.id='zoroBrowseTitle'+(++s.serial);row.setAttribute('aria-labelledby',heading.id);
     var track=node('div','zoroBrowseTrack focuscontainer-x');items.forEach(function(item){track.appendChild(card(item,s));});
     // Native spatial navigation owns Up/Down/Back; keep horizontal remote focus
     // within this scroll rail, revealing the actual focused card without animation.

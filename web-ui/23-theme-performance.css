@@ -183,17 +183,17 @@ body {
  * actions. It is never used as a row, card or dialog background.
  */
 :root {
-  --zoro-ui-accent-strong: var(--zoro-accent-strong, #25b85f);
-  --zoro-ui-accent: var(--zoro-accent, #42d779);
+  --zoro-ui-accent-strong: var(--zoro-accent-strong, #1cb956);
+  --zoro-ui-accent: var(--zoro-accent, #72e79b);
   --zoro-ui-accent-soft: var(--zoro-accent-soft, #72e79b);
   --zoro-ui-accent-ink: var(--zoro-accent-ink, #041208);
-  --zoro-ui-surface: var(--zoro-graphite, #101411);
-  --zoro-ui-surface-raised: var(--zoro-graphite-raised, #19211c);
+  --zoro-ui-surface: var(--zoro-graphite, #111513);
+  --zoro-ui-surface-raised: var(--zoro-graphite-raised, #1b211e);
   --zoro-ui-control: #242c26;
   --zoro-ui-control-hover: #303b33;
-  --zoro-ui-border: rgba(255, 255, 255, .18);
-  --zoro-ui-text: #f4f8f5;
-  --zoro-ui-muted: #b9c5bd;
+  --zoro-ui-border: #39423c;
+  --zoro-ui-text: #f5f7f5;
+  --zoro-ui-muted: #bbc5bd;
   --zoro-ui-focus: var(--zoro-focus, #f6fbf7);
 }
 
@@ -449,3 +449,6 @@ body {
     clear: both !important;
   }
 }
+
+.layout-tv .zoroTvPreview .zoroBrowseArtwork,
+.layout-tv .zoroTvPreview .cardScalable { position: relative; overflow: hidden; }

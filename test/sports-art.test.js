@@ -187,3 +187,35 @@ test('web look serves the artwork only when it is turned on', async () => {
   const noLive = createWebUi({ dataDir: dir }, { settings: { dir, features: { theme: true, livetv: false }, sportsArt: { enabled: true } }, sportsArt: art });
   assert.equal((await noLive.handlePublic({ segments: ['live-tv-logos', 'art', 'events.json'] })).status, 404);
 });
+
+test("the web row finds art for women's Champions League games", () => {
+  const live = require('../web-ui/52-livetv-events.js');
+  const start = Date.parse('2026-11-10T18:00:00Z');
+  const team = (id, name, aliases) => ({ id, name, aliases });
+  const manifest = { version: 2, events: [
+    { id: '1', league: 'soccer/uefa.wchampions', sport: 'soccer', start: '2026-11-10T18:00:00Z', kind: 'team_logos', image: '',
+      away: team('10', 'Chelsea', ['chelsea']), home: team('11', 'BK Häcken', ['bk hacken', 'hacken']),
+      logos: ['/live-tv-logos/art/sports-aaaaaaaaaaaaaaaaaaaaaaaa-11111111.png', '/live-tv-logos/art/sports-bbbbbbbbbbbbbbbbbbbbbbbb-22222222.png'] },
+    { id: '2', league: 'soccer/uefa.wchampions', sport: 'soccer', start: '2026-11-10T20:45:00Z', kind: 'team_logos', image: '',
+      away: team('12', 'Manchester City', ['manchester city', 'man city']), home: team('13', 'Internazionale', ['inter', 'inter milan', 'internazionale']),
+      logos: ['/live-tv-logos/art/sports-cccccccccccccccccccccccc-33333333.png', '/live-tv-logos/art/sports-dddddddddddddddddddddddd-44444444.png'] },
+  ] };
+  const channel = (name, title, at = start, genres = []) => ({ Id: name, Name: name, ChannelNumber: '1003',
+    CurrentProgram: { Id: `p-${name}`, Name: `Live: ${title}`, Genres: genres, IsLive: true, StartDate: new Date(at).toISOString(), EndDate: new Date(at + 4 * 3600000).toISOString() } });
+  const now = start + 3600000;
+  // The provider's titles carry just the two teams, with no league or category.
+  const plain = live.eventFor(channel('Paramount+ Event 1', 'BK Häcken vs. Chelsea'), now);
+  const plainArt = live.artworkDetailsFor(plain, manifest);
+  assert.equal(plainArt.kind, 'team_logos');
+  assert.equal(plainArt.league, 'soccer/uefa.wchampions');
+  const named = live.eventFor(channel('Paramount+ Event 3', 'Inter vs. Man. City', start + 2.75 * 3600000, ["UEFA Women's Champions League"]), start + 3 * 3600000);
+  assert.equal(live.artworkDetailsFor(named, manifest).league, 'soccer/uefa.wchampions');
+  // A guide that only says "Champions League" still finds the women's fixture by its teams.
+  const generic = live.eventFor(channel('Paramount+ Event 1', 'BK Häcken vs. Chelsea', start, ['UEFA Champions League']), now);
+  assert.equal(live.artworkDetailsFor(generic, manifest).league, 'soccer/uefa.wchampions');
+});
+
+test("the artwork job fetches women's Champions League fixtures", () => {
+  const { LEAGUES } = require('../src/modules/webUi/sportsArt');
+  assert.deepEqual(LEAGUES['soccer/uefa.wchampions'], { sport: 'soccer', tsdb: null });
+});

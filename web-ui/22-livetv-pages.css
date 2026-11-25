@@ -843,3 +843,45 @@ html.zoro-live-tv-active .skinHeader .headerTabs.sectionTabs .emby-tab-button.sh
     font-size: 20px !important;
   }
 }
+
+/* ---- Programme and channel art everywhere else ---------------------------
+ * Jellyfin's own phone and TV apps use the older Live TV page, and Home's On
+ * Now row and search use the same cards. Their guide art is usually a channel
+ * logo; Jellyfin covers the tile with it and cuts it off. Show it whole on a
+ * dark tile, like the Zorofin apps. Works before (and without) the script;
+ * the script marks real 16:9 pictures (.zoroGuideArtPhoto) so they fill. */
+.card[data-type="Program"] .cardImageContainer.coveredImage,
+.card[data-type="TvChannel"] .cardImageContainer.coveredImage {
+  background-color: #151c18 !important;
+  background-origin: content-box !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: contain !important;
+  box-sizing: border-box;
+  padding: 12% 15%;
+}
+
+.card[data-type="Program"] .cardImageContainer.coveredImage :not(.zoroLtvArt) > img,
+.card[data-type="TvChannel"] .cardImageContainer.coveredImage :not(.zoroLtvArt) > img {
+  box-sizing: border-box;
+  object-fit: contain !important;
+  padding: 12% 15%;
+}
+
+.card[data-type="Program"] .cardImageContainer.coveredImage.zoroGuideArtPhoto,
+.card[data-type="TvChannel"] .cardImageContainer.coveredImage.zoroGuideArtPhoto {
+  background-origin: padding-box !important;
+  background-size: cover !important;
+  padding: 0;
+}
+
+.card[data-type="Program"] .cardImageContainer.coveredImage.zoroGuideArtPhoto :not(.zoroLtvArt) > img,
+.card[data-type="TvChannel"] .cardImageContainer.coveredImage.zoroGuideArtPhoto :not(.zoroLtvArt) > img {
+  object-fit: cover !important;
+  padding: 0;
+}
+
+/* The Zorofin art layer on Jellyfin 12's Live TV page sets its own padding. */
+#liveTvPage .zoroLtvCard .cardImageContainer.coveredImage {
+  padding: 0;
+}

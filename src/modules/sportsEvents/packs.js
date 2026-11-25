@@ -29,6 +29,8 @@ const PACKS = Object.freeze({
   ligue1: { label: 'Ligue 1', title: 'Ligue 1', path: 'soccer/fra.1', sport: 'soccer', style: 'vs', minutes: 120, words: /\bligue 1\b/i, aliases: { psg: 'paris saint-germain' } },
   // Cups
   ucl: { label: 'Champions League', title: 'UEFA Champions League', path: 'soccer/uefa.champions', sport: 'soccer', style: 'vs', minutes: 120, words: /\b(?:ucl|champions league)\b/i, aliases: { inter: 'internazionale', 'inter milan': 'internazionale', psg: 'paris saint-germain' } },
+  uwcl: { label: "Women's Champions League", title: "UEFA Women's Champions League", path: 'soccer/uefa.wchampions', sport: 'soccer', style: 'vs', minutes: 120, words: /\b(?:uwcl|women'?s champions league)\b/i,
+    aliases: { inter: 'internazionale', 'inter milan': 'internazionale', psg: 'paris saint-germain', 'man city': 'manchester city', 'man utd': 'manchester united', 'man united': 'manchester united' } },
   uel: { label: 'Europa League', title: 'UEFA Europa League', path: 'soccer/uefa.europa', sport: 'soccer', style: 'vs', minutes: 120, words: /\b(?:uel|europa league)\b/i },
   facup: { label: 'FA Cup', title: 'FA Cup', path: 'soccer/eng.fa', sport: 'soccer', style: 'vs', minutes: 120, words: /\bfa cup\b/i },
   // Tournaments: a list of matches, like a league with a calendar.

@@ -330,3 +330,18 @@
 .layout-tv #itemDetailPage .zoroEpisodeJump { min-height: 60px; }
 
 .layout-tv #itemDetailPage .zoroEpisodeJump { font-size:clamp(18px,1.25vw,38px); }
+
+.zoroEpisodeFeedback{padding-block:16px;color:var(--zoro-episode-text,#f5f7f5)}
+.zoroEpisodeFeedback h3{font-size:20px;margin:0 0 8px}
+.zoroEpisodeFeedback p{margin:0;color:var(--zoro-episode-muted,#bbc5bd);line-height:1.5}
+.zoroEpisodeFeedbackActions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+.zoroEpisodeFeedbackActions button,.zoroEpisodeCurrent{font:inherit;color:inherit;background:var(--zoro-graphite-raised,#19211c);border:1px solid var(--zoro-episode-border,#ffffff2e);border-radius:24px;min-height:48px;padding:10px 16px}
+.zoroEpisodeCurrent{font-size:13px;margin-top:8px}
+.zoroEpisodeSkeleton{display:grid;gap:12px;margin-top:16px;max-width:760px}
+.zoroEpisodeSkeletonRow{display:grid;grid-template-columns:minmax(80px,128px) 1fr;gap:16px;align-items:center}
+.zoroEpisodeSkeletonRow span{display:block;height:12px;background:var(--zoro-graphite-raised,#19211c);border-radius:6px}
+.zoroEpisodeSkeletonRow span:first-child{height:auto;aspect-ratio:16/9}
+.zoroEpisodeFeedbackActions button:focus-visible,.zoroEpisodeCurrent:focus-visible{outline:3px solid var(--zoro-focus,#fff);outline-offset:3px}
+.layout-tv .zoroEpisodeFeedbackActions button,.layout-tv .zoroEpisodeCurrent{min-height:60px;font-size:20px}
+
+.zoroEpisodeUnavailable{display:block;color:var(--jf-palette-text-secondary,#bbc5bd);font-size:13px;margin-top:8px}

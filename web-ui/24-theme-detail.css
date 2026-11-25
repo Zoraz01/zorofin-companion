@@ -8,18 +8,18 @@
  */
 
 :root {
-  --zoro-accent-strong: #25b85f;
-  --zoro-accent: #42d779;
+  --zoro-accent-strong: #1cb956;
+  --zoro-accent: #72e79b;
   --zoro-accent-soft: #72e79b;
   --zoro-accent-ink: #041208;
   --zoro-accent-surface: rgba(37, 184, 95, .18);
   --zoro-accent-surface-strong: rgba(37, 184, 95, .32);
   --zoro-accent-border: rgba(114, 231, 155, .58);
   --zoro-focus: #f6fbf7;
-  --zoro-graphite: #101411;
-  --zoro-graphite-raised: #19211c;
-  --jf-palette-primary-main: rgb(66, 215, 121);
-  --jf-palette-primary-mainChannel: 66 215 121;
+  --zoro-graphite: #111513;
+  --zoro-graphite-raised: #1b211e;
+  --jf-palette-primary-main: rgb(114, 231, 155);
+  --jf-palette-primary-mainChannel: 114 231 155;
   --background-glow-color: #071b10;
   --backdrop-bg-color: #07120b;
   --card-indicate-bg: rgba(37, 184, 95, .5);

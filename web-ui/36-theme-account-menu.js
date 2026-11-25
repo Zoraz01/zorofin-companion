@@ -1,6 +1,10 @@
-/* Avatar account menu on wide and TV layouts, matching the Zorofin apps: the
- * signed-in viewer and server, then Switch account, Change server, Quick
- * Connect and Watch together, with Settings pinned at the bottom. Phones keep
+/* Avatar account menu on wide and TV layouts, in the same order as every
+ * Zorofin TV app (docs/design/TV_PROFILE_MENU.md): the signed-in viewer and
+ * server, Switch profile, then Pick Together, Watch Together, Calendar and
+ * Catch Up when the server offers them, then Your teams and trailer previews
+ * (web has no Home & display page of its own), with Settings pinned at the
+ * bottom. Quick Connect stays on Jellyfin's own profile page; Change server
+ * is gone because a browser stays on the server it loaded from. Phones keep
  * the Profile tab. Each action reuses Jellyfin web's own route or control. */
 (function (root, factory) {
   'use strict';
@@ -10,16 +14,20 @@
 }(typeof window === 'undefined' ? null : window, function () {
   'use strict';
   // The actions offered for this viewer, in menu order.
+  // Things to do come in the TV order; anything else from the extras follows.
+  var ORDER = ['pick-together', 'together', 'page-calendar', 'page-catchup'];
   function actions(options) {
-    var list = [
-      { key: 'switch', label: 'Switch account' },
-      { key: 'server', label: 'Change server' },
-      { key: 'quickconnect', label: 'Quick Connect' }
-    ];
-    if (options && options.syncPlay) list.push({ key: 'together', label: 'Watch together' });
-    if (options && options.teams) list.push({ key: 'teams', label: 'Your teams' });
-    // Pages from the Zorofin plugin's extras (Calendar, Catch Up), when the server has them on.
-    ((options && options.extra) || []).forEach(function (item) { if (item && item.key && item.label && typeof item.run === 'function') list.push(item); });
+    options = options || {};
+    var list = [{ key: 'switch', label: 'Switch profile' }], things = [], rest = [];
+    if (options.syncPlay) things.push({ key: 'together', label: 'Watch Together' });
+    // Pages from the Zorofin plugin's extras (Pick Together, Calendar, Catch Up, trailer previews).
+    (options.extra || []).forEach(function (item) {
+      if (!item || !item.key || !item.label || typeof item.run !== 'function') return;
+      (ORDER.indexOf(item.key) >= 0 ? things : rest).push(item);
+    });
+    things.sort(function (a, b) { return ORDER.indexOf(a.key) - ORDER.indexOf(b.key); });
+    if (options.teams) rest.unshift({ key: 'teams', label: 'Your teams' });
+    list = list.concat(things, rest);
     list.push({ key: 'settings', label: 'Settings', pinned: true });
     return list;
   }
@@ -43,7 +51,7 @@
       if (doc.getElementById('zoroAccountMenuStyles')) return;
       var style = node('style'); style.id = 'zoroAccountMenuStyles';
       style.textContent = [
-        '.zam-backdrop{position:fixed;inset:0;z-index:100000;}',
+        '.zam-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:100000;}',
         '.zam-menu{position:fixed;min-width:260px;max-width:min(360px,92vw);padding:8px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:var(--zoro-graphite,#101411);color:#f4f8f5;box-shadow:0 22px 70px rgba(0,0,0,.6);}',
         '.zam-account{display:flex;align-items:center;gap:12px;padding:10px 12px 12px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:6px;}',
         '.zam-avatar{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--zoro-accent-strong,#25b85f);color:#04140a;font-weight:800;}',
@@ -53,7 +61,10 @@
         '.zam-item:hover,.zam-item:focus{background:#19211c;outline:none;}',
         '.zam-item:focus-visible{outline:3px solid #fff;outline-offset:-3px;}',
         '.zam-pinned{margin-top:6px;border-top:1px solid rgba(255,255,255,.14);padding-top:6px;}',
-        '.layout-tv .zam-item{min-height:56px;font-size:1.1em;}'
+        '.layout-tv .zam-item{min-height:56px;font-size:1.1em;}',
+        '.zam-viewer{display:flex;align-items:center;justify-content:center;background:var(--zoro-ui-surface,#111513);}',
+        '.zam-viewer-panel{padding:32px;width:420px;max-width:85vw;color:var(--zoro-ui-text,#f5f7f5);}',
+        '.zam-viewer-panel .zam-item:focus{outline:3px solid var(--zoro-ui-accent,#72e79b);}'
       ].join('');
       doc.head.appendChild(style);
     }
@@ -62,7 +73,7 @@
       var trigger = open.trigger;
       open.backdrop.remove(); doc.removeEventListener('keydown', open.keys, true);
       open = null;
-      if (restore !== false && trigger && trigger.isConnected) trigger.focus();
+      if (restore !== false && trigger && doc.documentElement.contains(trigger)) trigger.focus();
     }
     function run(key) {
       var trigger = open && open.trigger;
@@ -70,9 +81,7 @@
       if (key === 'switch') {
         if (root.Dashboard && typeof root.Dashboard.logout === 'function') root.Dashboard.logout();
         else if (root.ApiClient && typeof root.ApiClient.logout === 'function') root.ApiClient.logout().then(function () { root.location.hash = '#/login'; });
-      } else if (key === 'server') root.location.hash = '#/selectserver';
-      else if (key === 'quickconnect') root.location.hash = '#/quickconnect';
-      else if (key === 'together') { var sync = syncButton(); if (sync) sync.click(); }
+      } else if (key === 'together') { var sync = syncButton(); if (sync) sync.click(); }
       else if (key === 'teams') { if (typeof root.zorofinOpenTeams === 'function') root.zorofinOpenTeams(trigger); }
       else if (key === 'settings') root.location.hash = '#/mypreferencesmenu';
     }
@@ -88,6 +97,8 @@
       text.appendChild(name); if (server) text.appendChild(where);
       account.appendChild(avatar); account.appendChild(text); menu.appendChild(account);
       var extra = typeof root.ZorofinMenuExtras === 'function' ? root.ZorofinMenuExtras() : [];
+      var previews = root.ZorofinTvPreviews && root.ZorofinTvPreviews.action();
+      if (previews) extra = extra.concat([previews]);
       actions({ syncPlay: visible(syncButton()), teams: typeof root.zorofinOpenTeams === 'function', extra: extra }).forEach(function (action) {
         var item = node('button', 'zam-item' + (action.pinned ? ' zam-pinned' : ''), action.label);
         item.type = 'button'; item.setAttribute('role', 'menuitem'); item.dataset.action = action.key;
@@ -125,6 +136,60 @@
       event.preventDefault(); event.stopImmediatePropagation();
       if (open) close(); else show(link);
     }, true);
+    // Jellyfin web restores one login per server. Once two viewers have used
+    // this TV, confirm the restored viewer on the next Home launch. Selecting
+    // another viewer always uses Jellyfin's existing sign-in flow.
+    var visited = {}, chooser = null, chooserOwner = '';
+    function removeChooser(restore) {
+      if (!chooser) return;
+      chooser.remove(); chooser = null; chooserOwner = '';
+      if (restore) {
+        var home = doc.querySelector('#homeTab .focusable,.headerUserButton');
+        if (home) home.focus();
+      }
+    }
+    function viewerLaunch() {
+      var c = root.ApiClient, sid, uid;
+      try {
+        sid = c && c.serverId(); uid = c && c.getCurrentUserId();
+        if (!c || !c.accessToken()) uid = '';
+      } catch (_) { uid = ''; }
+      var owner = sid + ':' + uid;
+      var onHome = /^(#\/?home(?:\.html)?(?:[?/].*)?|#\/?|)$/i.test(root.location.hash);
+      if (chooser && (!tv() || !onHome || owner !== chooserOwner)) removeChooser(false);
+      if (!tv() || !onHome || !sid || !uid) return;
+      var key = 'zorofin-shared-tv:' + sid, previous;
+      try {
+        previous = root.localStorage.getItem(key);
+        if (previous !== 'shared') root.localStorage.setItem(key, previous && previous !== uid ? 'shared' : uid);
+      } catch (_) { return; }
+      if (visited[sid]) return;
+      visited[sid] = true;
+      if (previous !== 'shared' || chooser) return;
+      var panel = node('div', 'zam-viewer-panel'), heading = node('h2', '', 'Who’s watching?');
+      var stay = node('button', 'zam-item', 'Continue with this account');
+      var change = node('button', 'zam-item', 'Switch viewer');
+      styles();
+      chooser = node('div', 'zam-backdrop zam-viewer');
+      chooserOwner = owner;
+      chooser.setAttribute('role', 'dialog'); chooser.setAttribute('aria-modal', 'true');
+      chooser.setAttribute('aria-label', heading.textContent);
+      panel.appendChild(heading); panel.appendChild(stay); panel.appendChild(change);
+      chooser.appendChild(panel); doc.body.appendChild(chooser);
+      stay.addEventListener('click', function () { removeChooser(true); });
+      change.addEventListener('click', function () { removeChooser(false); run('switch'); });
+      chooser.addEventListener('keydown', function (event) {
+        if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Tab'].indexOf(event.key) < 0) return;
+        event.preventDefault(); event.stopPropagation(); (doc.activeElement === stay ? change : stay).focus();
+      });
+      stay.focus();
+      if (typeof c.getCurrentUser === 'function') Promise.resolve(c.getCurrentUser()).then(function (user) {
+        if (chooserOwner === owner && user && user.Id === uid && user.Name) stay.textContent = 'Continue as ' + user.Name;
+      }, function () {});
+    }
+    root.addEventListener('hashchange', viewerLaunch);
+    doc.addEventListener('viewshow', viewerLaunch);
+    root.setTimeout(viewerLaunch, 800);
     root.addEventListener('hashchange', function () { close(false); });
   }
 

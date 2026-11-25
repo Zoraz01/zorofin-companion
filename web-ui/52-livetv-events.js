@@ -43,19 +43,22 @@
     if (/\b(ufc|boxing|mma|wwe|wrestling)\b/i.test(text)) return 'combat';
     return 'event';
   }
+  // Jellyfin sends seven fraction digits (…T22:00:00.0000000Z); trim to three so every browser reads it.
+  function guideDate(value) { return Date.parse(String(value || '').replace(/(\.\d{3})\d+/, '$1')); }
   function eventFor(channel, now) {
-    var p = channel.CurrentProgram || {}, start = Date.parse(p.StartDate), end = Date.parse(p.EndDate);
+    var p = channel.CurrentProgram || {}, start = guideDate(p.StartDate), end = guideDate(p.EndDate);
     if (!channel.Id || !p.Name || !Number.isFinite(start) || !Number.isFinite(end) || start > now || end <= now || end-start > 12*3600000) return null;
     var name = cleanTitle(p), base = name.split(' — ')[0], overview = p.Overview || '';
     if (p.IsRepeat || p.IsLive === false || !(/^live\s*:/i.test(p.Name) || p.IsLive === true)) return null;
     if (/^(?:[a-z]{2,6}\||threadfin:)/i.test(base) || /^threadfin:/i.test(overview) || normalized(base) === normalized(channel.Name)) return null;
     if (STUDIO.test(base) || DISCUSSION.test(overview) || /\b(?:news|talk show|documentary)\b/i.test(base)) return null;
+    var featured = (p.Genres || []).some(function (genre) { return String(genre).trim().toLowerCase() === 'featured live event'; });
     var kind = sport(base, p.Genres), competition = base;
-    if (kind === 'event' && !teams(base) && !/\b(olympics?|opening ceremony|closing ceremony|awards|concert|festival|marathon|rugby|volleyball|swimming|cycling|athletics|track and field)\b/i.test(base)) return null;
+    if (!featured && kind === 'event' && !teams(base) && !/\b(olympics?|opening ceremony|closing ceremony|awards|concert|festival|marathon|rugby|volleyball|swimming|cycling|athletics|track and field)\b/i.test(base)) return null;
     // NBA games lead the row; the remaining sport order and soccer-before-CFL rule stay intact.
-    var priority = kind === 'basketball' && leagueFor(base+' '+(p.Genres || []).join(' ')) === 'basketball/nba' ? -1 : kind === 'football' && /\b(cfl|canadian football league)\b/i.test(base) ? 2.5 : PRIORITY[kind];
+    var priority = featured ? -100 : kind === 'basketball' && leagueFor(base+' '+(p.Genres || []).join(' ')) === 'basketball/nba' ? -1 : kind === 'football' && /\b(cfl|canadian football league)\b/i.test(base) ? 2.5 : PRIORITY[kind];
     var parts = name.split(' — '), matchup = parts.length > 1 ? teams(parts[parts.length-1]) : teams(base);
-    return {id:channel.Id,programId:p.Id || '',programImages:programImages(channel,p),name:matchup ? matchup.join(' vs ') : name,competition:matchup && parts.length > 1 ? competition : LABELS[kind],kind:kind,priority:priority,start:start,end:end,channel:String(channel.Name || 'Live TV'),number:String(channel.ChannelNumber || ''),favorite:!!(channel.UserData && channel.UserData.IsFavorite),matchup:matchup,context:base,leagueContext:base+' '+(p.Genres || []).join(' '),evidence:(p.Overview || '')+' '+(p.EpisodeTitle || '')};
+    return {id:channel.Id,programId:p.Id || '',programImages:programImages(channel,p),name:matchup ? matchup.join(' vs ') : name,competition:matchup && parts.length > 1 ? competition : LABELS[kind],kind:kind,priority:priority,featured:featured,start:start,end:end,channel:String(channel.Name || 'Live TV'),number:String(channel.ChannelNumber || ''),favorite:!!(channel.UserData && channel.UserData.IsFavorite),matchup:matchup,context:base,leagueContext:base+' '+(p.Genres || []).join(' '),evidence:(p.Overview || '')+' '+(p.EpisodeTitle || '')};
   }
   // The programme's own guide images, as the Apple apps use them. Jellyfin can
   // copy the channel logo onto the programme; a tag shared with the channel is
@@ -95,6 +98,7 @@
     text=normalized(text);
     if (/\b(college|ncaa|youth|under \d+|u\d{2}|u \d{2}|cfl|canadian|cricket|wnba|nwsl)\b/.test(text)) return 'unsupported';
     if (/\b(wsl|women(?: s|s)? super league)\b/.test(text)) return 'soccer/eng.w.1';
+    if (/\b(uwcl|women(?: s|s)? (?:uefa )?champions league|uefa women(?: s|s)? champions league)\b/.test(text)) return 'soccer/uefa.wchampions';
     if (/\b(women|womens|female)\b/.test(text)) return 'unsupported';
     if (/\b(nfl|super bowl)\b/.test(text)) return 'football/nfl';
     if (/\bnba\b/.test(text)) return 'basketball/nba';
@@ -109,6 +113,11 @@
     if (/\b(premier league|epl)\b/.test(text)) return 'soccer/eng.1';
     if (/\b(efl championship|english league championship|english championship)\b/.test(text)) return 'soccer/eng.2';
     return '';
+  }
+  // A guide that just says "Champions League" can be either the men's or the
+  // women's competition; the teams and kickoff decide which fixture it is.
+  function sameLeague(guide, fixture) {
+    return guide===fixture || (guide==='soccer/uefa.champions' && fixture==='soccer/uefa.wchampions');
   }
   function safeArt(path) {
     return typeof path==='string' && /^\/live-tv-logos\/art\/[a-z0-9][a-z0-9-]*\.(?:png|jpe?g|webp)$/.test(path);
@@ -131,7 +140,7 @@
       });
     }
     var candidates=manifest.events.filter(function(f){
-      if(!f || !f.home || !f.away || f.home.id===f.away.id || !Object.prototype.hasOwnProperty.call(LABELS,f.sport) || (league && league!==f.league))return false;
+      if(!f || !f.home || !f.away || f.home.id===f.away.id || !Object.prototype.hasOwnProperty.call(LABELS,f.sport) || (league && !sameLeague(league,f.league)))return false;
       // Some event feeds provide just two team names, with no sport/genres.
       // A unique dated pair can establish the sport; a channel name cannot.
       if(f.sport!==event.kind && !(event.kind==='event' && event.matchup && event.matchup.length===2))return false;
@@ -145,6 +154,16 @@
     var orderedTeams=[f.away.name,f.home.name];
     if(event.matchup && matches(event.matchup[0],f.home) && matches(event.matchup[1],f.away)){logos=logos.slice().reverse();orderedTeams.reverse();}
     return image || logos.length ? {image:image,logos:logos,kind:image?'event_image':'team_logos',teams:orderedTeams,league:f.league,sport:f.sport} : null;
+  }
+  // A scheduled guide programme (the Home "Your teams" row): its two teams and their crests, when the
+  // catalogue holds exactly one fixture for that pair around its start time.
+  function programCrests(program,manifest) {
+    if(!program || !program.Name)return null;
+    var name=cleanTitle(program),parts=name.split(' — '),base=parts[0];
+    var matchup=parts.length>1 ? teams(parts[parts.length-1]) : teams(base),start=guideDate(program.StartDate);
+    if(!matchup || !Number.isFinite(start))return null;
+    var detail=artworkDetailsFor({kind:sport(base,program.Genres),start:start,matchup:matchup,name:matchup.join(' vs '),context:base,leagueContext:base+' '+(program.Genres || []).join(' '),evidence:(program.Overview || '')},manifest);
+    return detail && detail.logos.length===2 ? {logos:detail.logos,teams:detail.teams} : null;
   }
   function artworkFor(event,manifest){var detail=artworkDetailsFor(event,manifest);return detail ? detail.image : '';}
   // Authored illustrations, never guide HTML or a guessed team/venue image.
@@ -211,7 +230,10 @@
     var name=function(side){return String(side.short || side.name || '').slice(0,24);};
     // Card background tint: away team, or home when the away colour is near black.
     var tint=function(side){var c=color(side);return c && c!=='#d9dedb' ? c : '';};
-    return {away:label(game.away),awayScore:away,home:label(game.home),homeScore:home,detail:String(game.detail || '').slice(0,40),final:game.state==='post',awayName:name(game.away),homeName:name(game.home),awayColor:color(game.away),homeColor:color(game.home),league:String(game.leagueName || '').slice(0,24),tint:tint(game.away) || tint(game.home)};
+    // Soccer is written home first ("Arsenal 1–0 Dortmund"), matching the match art,
+    // which puts the home crest on the left; US sports stay away first.
+    var soccer=game.sport==='soccer', first=soccer?game.home:game.away, second=soccer?game.away:game.home;
+    return {away:label(first),awayScore:soccer?home:away,home:label(second),homeScore:soccer?away:home,detail:String(game.detail || '').slice(0,40),final:game.state==='post',awayName:name(first),homeName:name(second),awayColor:color(first),homeColor:color(second),league:String(game.leagueName || '').slice(0,24),tint:tint(first) || tint(second)};
   }
   // With the companion's Live now feed, the row follows the operator's
   // settings: feed order (Live now order and favorite teams), its length (most
@@ -220,15 +242,16 @@
   function arrangeWithFeed(events, feed) {
     var games=feed && feed.games, covered=feed && Array.isArray(feed.leagues) ? feed.leagues : [];
     if(!Array.isArray(games))return events;
-    var matched=[], others=[];
+    var featured=[], matched=[], others=[];
     events.forEach(function(event){
+      if(event.featured){featured.push(event);return;}
       var at=gameIndexFor(event,games);
       if(at>=0){var game=games[at];event.favoriteTeam=!!(game.home.favorite || game.away.favorite);if(!event.matchup && game.title && /^[^<>]{3,80}$/.test(game.title))event.name=String(game.title);event.score=scoreFor(event,games);matched.push({at:at,event:event});}
       else if(covered.indexOf(leagueFor(event.leagueContext || ''))<0)others.push(event);
     });
     matched.sort(function(a,b){return a.at-b.at;});
     var seen=Object.create(null);
-    return matched.filter(function(m){if(seen[m.at])return false;seen[m.at]=true;return true;}).map(function(m){return m.event;}).concat(others);
+    return featured.concat(matched.filter(function(m){if(seen[m.at])return false;seen[m.at]=true;return true;}).map(function(m){return m.event;}),others);
   }
   function scoreText(score) { return score ? score.away+' '+score.awayScore+' – '+score.homeScore+' '+score.home+(score.detail?' · '+score.detail:'') : ''; }
   function mount(window) {
@@ -347,7 +370,7 @@
         '#zoroLiveEvents [data-sport=racing] .zle-sport-graphic{color:#cebbeb;background:linear-gradient(135deg,#403252,#221b30)}',
         '#zoroLiveEvents [data-sport=combat] .zle-sport-graphic{color:#e8b8bd;background:linear-gradient(135deg,#512c38,#2b1b24)}',
         '#zoroLiveEvents .zle-top{position:absolute;top:10px;left:10px;right:10px;z-index:1;display:flex;pointer-events:none}',
-        '#zoroLiveEvents .zle-live{display:inline-flex;align-items:center;padding:2px 6px;border-radius:4px;background:#e5484d;color:#fff;font-size:10px;font-weight:700;line-height:14px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}',
+        '#zoroLiveEvents .zle-live{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#000000bf;color:#fff;font-size:11px;font-weight:700;line-height:14px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}#zoroLiveEvents .zle-live:before{content:"";width:7px;height:7px;border-radius:50%;background:#ff453a}',
         '#zoroLiveEvents .zle-fav{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:#000000bf;color:#ffd60a;font-size:13px;line-height:1}',
         '#zoroLiveEvents .zle-top{top:8px;left:8px;right:8px;align-items:flex-start}',
         '#zoroLiveEvents .zle-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:10px;font-size:var(--zoro-home-title,18px);font-weight:600;line-height:1.3;overflow-wrap:anywhere}',
@@ -402,7 +425,7 @@
       if(row && row.parentNode===host){while(row.firstChild)row.removeChild(row.firstChild);}
       else {clear();row=node('section','verticalSection');row.id=ID;row.setAttribute('aria-labelledby',ID+'Title');}
       styles();
-      var heading=node('div','zle-heading'), title=node('h2','sectionTitle'), titleLink=node('a','zle-heading-link',host.id==='zoroLiveNowHost'?'Live now':'Sports & live events');title.id=ID+'Title';
+      var heading=node('div','zle-heading'), title=node('h2','sectionTitle'), titleLink=node('a','zle-heading-link',host.id==='zoroLiveNowHost'?'Sports':host.id==='zoroLiveNowHost12'?'Sports':'Sports & live events');title.id=ID+'Title';
       titleLink.href=host.id==='zoroLiveNowHost12'?'#/livetv?collectionType=livetv&tab=2':'#/livetv?collectionType=livetv';title.appendChild(titleLink);heading.appendChild(title);
       var all=node('a','zle-all','All channels');all.href=host.id==='zoroLiveNowHost'?'#/livetv?tab=2':host.id==='zoroLiveNowHost12'?'#/livetv?collectionType=livetv&tab=2':titleLink.href;
       var chevron=node('span','','›');chevron.setAttribute('aria-hidden','true');all.appendChild(chevron);heading.appendChild(all);row.appendChild(heading);
@@ -421,7 +444,7 @@
           art.setAttribute('data-art-kind',choice.kind);
           if(choice.image || choice.kind==='program_image'){
             var photo=node('img','zle-event-image');photo.alt='';photo.loading='lazy';photo.decoding='async';photo.width=1280;photo.height=720;
-            photo.addEventListener('error',imageFailed,{once:true});photo.addEventListener('load',function(){var r=photo.naturalWidth/photo.naturalHeight;art.classList.toggle('zle-logo-art',!(r>=1.6 && r<=1.95));},{once:true});photo.src=choice.image?artSrc(choice.image):programImageUrl(choice);media.appendChild(photo);
+            photo.addEventListener('error',imageFailed,{once:true});photo.addEventListener('load',function(){var r=photo.naturalWidth/photo.naturalHeight,logoShaped=!(r>=1.6 && r<=1.95);if(logoShaped && choice.kind==='program_image' && choiceIndex<choices.length){imageFailed();return;}art.classList.toggle('zle-logo-art',logoShaped);},{once:true});photo.src=choice.image?artSrc(choice.image):programImageUrl(choice);media.appendChild(photo);
           }else if(choice.kind==='team_logos'){
             var pair=node('div','zle-team-logos');
             choice.logos.forEach(function(path,i){
@@ -501,5 +524,5 @@
     document.addEventListener('visibilitychange',function(){refresh(true);});
     new window.MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});schedule();
   }
-  return {arrangeWithFeed:arrangeWithFeed,gameIndexFor:gameIndexFor,scoreFor:scoreFor,scoreText:scoreText,eventFor:eventFor,select:select,cleanTitle:cleanTitle,logo:logo,artworkFor:artworkFor,artworkDetailsFor:artworkDetailsFor,artworkChoices:artworkChoices,sportGraphic:sportGraphic,mount:mount};
+  return {arrangeWithFeed:arrangeWithFeed,gameIndexFor:gameIndexFor,scoreFor:scoreFor,scoreText:scoreText,eventFor:eventFor,select:select,cleanTitle:cleanTitle,logo:logo,artworkFor:artworkFor,artworkDetailsFor:artworkDetailsFor,programCrests:programCrests,artworkChoices:artworkChoices,sportGraphic:sportGraphic,mount:mount};
 }));

@@ -15,12 +15,13 @@ const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 const USER_AGENT = 'Zorofin-Companion/1.0 (guide enrichment)';
 
 // GET with a size cap. Resolves { status, type, body: Buffer }.
-function fetchBuffer(target, { maxBytes, timeout = 15000, headers = {} } = {}) {
+// `version` is the response's ETag or Last-Modified, when it sends one.
+function fetchBuffer(target, { maxBytes, timeout = 15000, headers = {}, method = 'GET' } = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(target);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return reject(new Error('unsupported URL'));
     const client = url.protocol === 'https:' ? https : http;
-    const request = client.get(url, { headers: { 'User-Agent': USER_AGENT, ...headers }, timeout }, response => {
+    const request = client.request(url, { method, headers: { 'User-Agent': USER_AGENT, ...headers }, timeout }, response => {
       const chunks = [];
       let size = 0;
       response.on('data', chunk => {
@@ -35,11 +36,13 @@ function fetchBuffer(target, { maxBytes, timeout = 15000, headers = {} } = {}) {
         status: response.statusCode || 0,
         type: String(response.headers['content-type'] || '').split(';')[0].trim().toLowerCase(),
         body: Buffer.concat(chunks),
+        version: String(response.headers.etag || response.headers['last-modified'] || ''),
       }));
       response.on('error', reject);
     });
     request.on('error', reject);
     request.on('timeout', () => request.destroy(new Error('timed out')));
+    request.end();
   });
 }
 

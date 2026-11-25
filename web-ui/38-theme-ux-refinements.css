@@ -1,0 +1,37 @@
+/* Scope presentation to enhanced detail actions, library controls and team dialogs.
+ * Home and pre-search recommendations intentionally have no selectors here. */
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .zoroUxActionButton{border:0!important;background:transparent!important;border-radius:12px!important;min-width:64px!important;width:auto!important;min-height:76px!important;height:auto!important;padding:8px 6px!important;color:var(--jf-palette-text-primary,#f5f7f5)!important}
+#itemDetailPage.zoro-detail-v3 .zoroUxActionButton .detailButton-content{display:flex!important;flex-direction:column!important;align-items:center;justify-content:center;gap:7px}
+#itemDetailPage.zoro-detail-v3 .zoroUxActionButton .zoroDetailButtonLabelV3{display:none!important}
+#itemDetailPage.zoro-detail-v3 .zoroUxActionButton .zoroUxActionLabel{display:block;font:500 12px/1.35 Inter,Arial,sans-serif;white-space:normal;text-align:center;color:var(--jf-palette-text-secondary,#bbc5bd)}
+#itemDetailPage.zoro-detail-v3 .zoroUxActionButton .detailButton-icon{background:var(--zoro-graphite-raised,#19211c);border-radius:50%;box-sizing:content-box;padding:9px}
+#itemDetailPage.zoro-detail-v3 .zoroUxActionButton:focus-visible,.zoroUxChoice:focus-visible,.zoroUxNativeControl:focus-visible{outline:3px solid var(--zoro-focus,#f6fbf7)!important;outline-offset:3px}
+.zoroUxNativeControl{display:inline-flex!important;align-items:center;gap:8px;min-height:48px;min-width:48px;width:auto!important;padding:8px 14px!important}
+.zoroUxControlLabel{font-size:14px;line-height:1.3;white-space:normal}
+.zoroUxTeams{display:grid;gap:12px;margin:16px 0}
+.zoroUxField{display:grid;gap:6px;font-size:14px}
+.zoroUxTeams input,.zoroUxTeams select{box-sizing:border-box;width:100%;min-height:48px;font:inherit;font-size:16px;color:inherit;background:var(--zoro-graphite-raised,#19211c);border:1px solid var(--zoro-ui-border,#ffffff2e);border-radius:10px;padding:10px}
+.zoroUxSelected,.zoroUxSuggestions{display:flex;flex-wrap:wrap;gap:8px}
+.zoroUxChoice{font:inherit;font-size:14px;line-height:1.4;color:inherit;border:1px solid var(--zoro-ui-border,#ffffff2e);background:var(--zoro-graphite-raised,#19211c);border-radius:22px;padding:10px 14px;min-height:48px;max-width:100%;overflow-wrap:anywhere}
+.zoroUxChoice[aria-pressed=true]{background:var(--zoro-accent-soft,#72e79b);color:var(--zoro-accent-ink,#041208)}
+.zoroUxTeamStatus{font-size:13px;line-height:1.5;margin:0;color:var(--jf-palette-text-secondary,#bbc5bd)}
+.layout-tv .zoroUxChoice,.layout-tv .zoroUxNativeControl{min-height:60px;font-size:20px}
+@media(max-width:599px){#itemDetailPage.zoro-detail-v3 .mainDetailButtons{flex-wrap:wrap!important;gap:8px!important}#itemDetailPage.zoro-detail-v3 .mainDetailButtons .zoroUxActionButton{flex:0 1 auto!important;min-width:54px!important;padding-inline:4px!important}#itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnPlay,#itemDetailPage.zoro-detail-v3 .mainDetailButtons .btnReplay:not(.zoroUxActionButton){flex:1 0 100%!important;width:100%!important}}
+/* Keep the real artwork/fallback scene visible in the dedicated Sports rail,
+ * including scored games. The existing Home score composition stays intact. */
+#zoroLiveNowHost12 #zoroLiveEvents .zle-scored .zle-art[data-art-kind=sport_graphic] .zle-media{display:block}
+
+#itemDetailPage.zoro-detail-v3 .mainDetailButtons .zoroUxActionButton::after{display:none!important}
+.layout-tv #itemDetailPage.zoro-detail-v3 .zoroUxActionLabel{font-size:18px}
+
+/* Applied only while a query is present; the Recommended poster grid is unchanged. */
+.zoroSearchTyped .zoroSearchGrid{display:flex!important;flex-direction:column;gap:12px!important;max-width:1000px}
+.zoroSearchTypeFilters{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 16px}
+.zoroSearchTyped .zoroSearchResultRow{display:grid!important;grid-template-columns:minmax(96px,160px) 1fr;grid-template-rows:auto auto;gap:4px 16px;align-content:center;align-items:center;padding:10px;background:var(--zoro-graphite-raised,#19211c);border:1px solid var(--zoro-ui-border,#ffffff2e);border-radius:12px}
+.zoroSearchTyped .zoroSearchResultRow .zoroSearchPoster{grid-row:1 / span 2;width:100%;height:auto!important;aspect-ratio:16/9!important;padding:0!important;object-fit:cover}
+.zoroSearchTyped .zoroSearchResultRow .zoroSearchTitle{grid-column:2;margin:0;white-space:normal;overflow-wrap:anywhere}
+.zoroSearchTyped .zoroSearchResultRow .zoroSearchMeta{grid-column:2;overflow-wrap:anywhere}
+.zoroSearchMore{margin-top:16px}
+@media(max-width:420px){.zoroSearchTyped .zoroSearchResultRow{grid-template-columns:96px minmax(0,1fr);gap:6px 12px}}
+
+.zoroUxGuideDates{flex:0 0 auto;min-width:150px;margin:0 12px 12px 0}.zoroUxGuideDates select{min-height:48px;max-width:100%;background:var(--zoro-graphite-raised,#19211c);color:inherit;font:inherit;border:1px solid #ffffff2e;border-radius:10px;padding:8px}.guideHeaderDateSelection:has(.zoroUxGuideDates){flex-wrap:wrap;align-items:end}

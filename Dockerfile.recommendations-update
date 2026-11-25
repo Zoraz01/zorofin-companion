@@ -1,0 +1,6 @@
+# Scoped runtime patch: preserve the currently deployed image's other modules.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG REVISION=unknown
+LABEL org.opencontainers.image.revision="${REVISION}"
+COPY src/modules/recommendations/index.js /app/src/modules/recommendations/index.js

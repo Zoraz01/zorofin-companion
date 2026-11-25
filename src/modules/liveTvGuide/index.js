@@ -17,6 +17,9 @@ const { bestLogo, cleanChannelName, logoFiles, overrideFor, parseOverrides, rawU
 const { rewriteChannels, rewriteProgrammes } = require('./xmltv');
 
 const STARTUP_RETRY_MS = 60 * 1000;
+// How often to ask the source, with a HEAD, whether it has changed. A source
+// that sends no ETag or Last-Modified is only read on the refresh interval.
+const WATCH_MS = 2 * 60 * 1000;
 const ID = 'liveTvGuide';
 const VERSION = 1;
 const MAX_GUIDE_BYTES = 64 * 1024 * 1024;
@@ -86,6 +89,8 @@ function createLiveTvGuide(config, deps = {}) {
   let running = null;
   let timer = null;
   let retry = null; // soon after a failed start, while nothing has been served yet
+  let watcher = null;
+  let seenVersion = ''; // the source version the last build read
 
   function artUrl(file) {
     return `${settings.publicUrl}v1/public/${ID}/${settings.token}/art/${file}`;
@@ -110,6 +115,7 @@ function createLiveTvGuide(config, deps = {}) {
 
   async function build() {
     const source = await fetcher(settings.sourceUrl, { maxBytes: MAX_GUIDE_BYTES, timeout: 60000 });
+    seenVersion = source.version || '';
     const xml = source.status === 200 ? source.body.toString('utf8') : '';
     if (!/<tv[\s>]/.test(xml)) throw new Error(`guide source returned ${source.status === 200 ? 'something that is not XMLTV' : `HTTP ${source.status}`}`);
 
@@ -203,6 +209,20 @@ function createLiveTvGuide(config, deps = {}) {
     return running;
   }
 
+  // Rebuilds as soon as the source changes (for example when Sports adds a
+  // game), instead of waiting up to a whole refresh interval.
+  async function watch() {
+    if (running) return false;
+    try {
+      const head = await fetcher(settings.sourceUrl, { method: 'HEAD', maxBytes: 1024, timeout: 10000 });
+      if (head.status !== 200 || !head.version || head.version === seenVersion) return false;
+    } catch (_) {
+      return false; // the next refresh reports a source that is down
+    }
+    await refresh();
+    return true;
+  }
+
   return {
     id: ID,
     capabilities: () => ({ [ID]: { version: VERSION, enabled: true } }),
@@ -243,16 +263,21 @@ function createLiveTvGuide(config, deps = {}) {
       refresh();
       timer = setInterval(refresh, settings.refreshMs);
       timer.unref();
+      watcher = setInterval(() => { void watch(); }, deps.watchMs || WATCH_MS);
+      watcher.unref();
     },
 
     stop() {
       if (timer) clearInterval(timer);
+      if (watcher) clearInterval(watcher);
       if (retry) clearTimeout(retry);
+      watcher = null;
       timer = null;
       retry = null;
     },
 
     refresh,
+    watch,
     status,
   };
 }

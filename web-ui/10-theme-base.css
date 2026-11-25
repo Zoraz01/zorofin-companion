@@ -361,7 +361,7 @@ select:focus{background-color: #3a3a3a;}
 	border-radius: 50px;
 	padding: 5px 15px;
 	width: fit-content !important;
-	font-family: -apple-system,Inter,SF Pro,Segoe UI,sans-serif;
+	font-family: Inter,-apple-system,SF Pro,Segoe UI,sans-serif;
 	font-kerning: normal;
 	font-weight: 400;
 }
@@ -540,7 +540,7 @@ text-decoration: none;
   background: #ffffff0d;
 }
 html{
-  font-family:-apple-system,Inter,SF Pro,Noto Sans,Noto Sans HK,Noto Sans JP,Noto Sans KR,Noto Sans SC,Noto Sans TC,sans-serif;
+  font-family:Inter,-apple-system,SF Pro,Noto Sans,Noto Sans HK,Noto Sans JP,Noto Sans KR,Noto Sans SC,Noto Sans TC,sans-serif;
 }
 .emby-scrollbuttons.padded-right {
 	background: #ffffff0a;
@@ -624,7 +624,7 @@ transition: 0.2s;
   border-radius: 50px;
   padding: 5px 15px;
   width: fit-content !important;
-  font-family: -apple-system,Inter,SF Pro,BlinkMacSystemFont,sans-serif;
+  font-family: Inter,-apple-system,SF Pro,BlinkMacSystemFont,sans-serif;
   font-kerning: normal;
   right: 0;
   bottom: 0;
@@ -1003,7 +1003,7 @@ z-index: -1;
 	border-radius: 50px;
 }
 .css-rtsren{
-  font-family: -apple-system,Inter,"Noto Sans", sans-serif;
+  font-family: Inter,-apple-system,"Noto Sans", sans-serif;
 }
 .css-au9l87 {
   background: white;
@@ -1436,7 +1436,7 @@ li.MuiListItem-root:nth-child(1) > a:nth-child(1) {
   transition: none;
 }
 .searchSuggestionsList > div > a {
-  font-family:-apple-system,Inter,SF Pro,Inter,Mateial icons,sans-serif;
+  font-family:Inter,-apple-system,SF Pro,Inter,Mateial icons,sans-serif;
 }
 .searchSuggestionsList > div > a::before {
   content: '';/*dont change ts search ico*/

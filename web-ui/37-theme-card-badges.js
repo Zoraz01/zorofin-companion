@@ -50,7 +50,7 @@
     '#homeTab .quality-overlay-container, #homeTab .rating-overlay-container, #homeTab .zoroBrowseRating, #homeTab .zhr-badges, #homeTab .zph-badges { display:none!important; }',
     '#homeTab .cardScalable > .cardOverlayButton-br { display:none!important; }',
     '#homeTab .zcb-host { position:relative; }',
-    '.zcb-rating { position:absolute; top:8px; right:8px; z-index:2; display:inline-flex; align-items:center; gap:4px; padding:5px 8px; border-radius:999px; background:rgba(0,0,0,.82); color:#ffd60a; font:700 12px/1 system-ui,-apple-system,sans-serif; white-space:nowrap; pointer-events:none; }',
+    '.zcb-rating { position:absolute; top:8px; right:8px; z-index:2; display:inline-flex; align-items:center; gap:4px; padding:5px 8px; border-radius:999px; background:rgba(0,0,0,.82); color:#ffd60a; font:700 12px/1 Inter,system-ui,-apple-system,sans-serif; white-space:nowrap; pointer-events:none; }',
     '.zcb-quality { position:absolute; left:8px; bottom:8px; z-index:2; padding:4px 7px; border-radius:5px; background:rgba(0,0,0,.82); color:#fff; font:700 10px/1.2 system-ui,-apple-system,sans-serif; white-space:nowrap; pointer-events:none; }',
     '.zcb-host.zcb-progress .zcb-quality { bottom:16px; }',
     '.layout-tv .zcb-rating { top:12px; right:12px; padding:6px 10px; font-size:18px; } .layout-tv .zcb-quality { font-size:16px; }'

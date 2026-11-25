@@ -27,6 +27,7 @@ const BUILT_IN = Object.freeze({
   liveTvStreams: (config, deps) => require('./liveTvStreams').createLiveTvStreams(config, deps),
   sportsEvents: (config, deps) => require('./sportsEvents').createSportsEvents(config, deps),
   recommendations: (config, deps) => require('./recommendations').createRecommendations(config, deps),
+  pickTogether: (config, deps) => require('./pickTogether').createPickTogether(config, deps),
   webUi: (config, deps) => require('./webUi').createWebUi(config, deps),
 });
 

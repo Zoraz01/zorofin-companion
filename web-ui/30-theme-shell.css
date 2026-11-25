@@ -83,6 +83,12 @@ html.zoro-shell-active #searchPage .jellyseerr-section,html.zoro-shell-active .s
 .layout-tv .zoroSearchRequestsLink { min-height:60px; font-size:22px; padding:14px 24px; }
 html.zoro-shell-profile #myPreferencesMenuPage { padding-top:calc(var(--zoro-shell-header) + 20px)!important; padding-bottom:calc(var(--zoro-shell-footer) + 32px)!important; }
 html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent { max-width:960px!important; width:100%; color:#f5f7f5; }
+/* Settings has no library tab row. Leaving its empty header rail visible
+   reserves a second toolbar and pushes the account heading down on phones. */
+html.zoro-shell-profile .skinHeader .headerTabs,
+html.zoro-shell-settings .skinHeader .headerTabs { display:none!important; }
+html.zoro-shell-profile #myPreferencesMenuPage .readOnlyContent { margin-top:0!important; padding-top:0!important; box-sizing:border-box; }
+html.zoro-shell-profile #myPreferencesMenuPage :is(a,button,input,select) { scroll-margin-bottom:calc(var(--zoro-shell-footer,0px) + 16px); }
 html.zoro-shell-profile #myPreferencesMenuPage .listItem-border { background:#1b211e!important; border:1px solid #39423c!important; border-radius:12px; margin:0 0 8px!important; overflow:hidden; }
 html.zoro-shell-profile #myPreferencesMenuPage .listItem { min-height:56px; padding:12px 18px; box-sizing:border-box; }
 html.zoro-shell-profile #myPreferencesMenuPage .listItemIcon { background:transparent!important; color:#a6dfb9!important; }
@@ -1107,6 +1113,16 @@ html.zoro-ui .homePage #homeTab .zoroBrowseMeta { text-align:left!important; pad
 html.zoro-ui .homePage #homeTab .zoroBrowseTrack { gap:var(--zoro-home-gap); scroll-padding-inline:var(--zoro-home-gutter); }
 html.zoro-ui .homePage #homeTab .zoroBrowseCard { flex-basis:var(--zoro-home-art); }
 html.zoro-ui .homePage #homeTab .zoroBrowsePoster { aspect-ratio:16/9; width:100%; height:auto; border-radius:12px; object-fit:cover; border:1px solid var(--zoro-ui-border,#ffffff2e); box-sizing:border-box; }
+/* Two card styles, as in the apps: movie and show rows use same-size 2:3 posters;
+   Continue Watching, episode and live rows keep the wide cards above. */
+html.zoro-ui .homePage #homeTab .zoroPosterRow .zoroBrowseCard { flex-basis:var(--zoro-home-poster,calc(var(--zoro-home-art) * .56)); }
+html.zoro-ui .homePage #homeTab .zoroPosterRow .zoroBrowsePoster { aspect-ratio:2/3; }
+html.zoro-ui .homePage #homeTab .zoroPosterRow span.zoroBrowsePoster { aspect-ratio:2/3; }
+/* A TV trailer preview widens the poster to 16:9 at the same height. */
+html.layout-tv.zoro-ui .homePage #homeTab .zoroPosterRow .zoroBrowseCard { transition:flex-basis .28s ease; }
+html.layout-tv.zoro-ui .homePage #homeTab .zoroPosterRow .zoroTvPreview { flex-basis:calc(var(--zoro-home-poster,calc(var(--zoro-home-art) * .56)) * 2.6667); }
+html.layout-tv.zoro-ui .homePage #homeTab .zoroPosterRow .zoroTvPreview .zoroBrowsePoster { aspect-ratio:16/9; }
+@media(prefers-reduced-motion:reduce) { html.layout-tv.zoro-ui .homePage #homeTab .zoroPosterRow .zoroBrowseCard { transition:none; } }
 html.zoro-ui .homePage #homeTab .zoroBrowseCard:focus { outline:none; }
 html.zoro-ui .homePage #homeTab .zoroBrowseCard:focus-visible .zoroBrowsePoster { outline:3px solid #f5f7f5; outline-offset:4px; }
 @media(max-width:599px) {
@@ -1116,7 +1132,7 @@ html.zoro-ui .homePage #homeTab .zoroBrowseCard:focus-visible .zoroBrowsePoster 
  html.zoro-ui .homePage #homeTab .zoroBrowseTrack { padding-block:14px!important; }
 }
 html.layout-tv.zoro-ui.zoro-shell-active {
- --zoro-home-art:var(--zoro-tv-landscape); --zoro-home-gap:var(--zoro-tv-rail-gap); --zoro-home-gutter:var(--zoro-tv-gutter);
+ --zoro-home-poster:var(--zoro-tv-poster); --zoro-home-art:var(--zoro-tv-landscape); --zoro-home-gap:var(--zoro-tv-rail-gap); --zoro-home-gutter:var(--zoro-tv-gutter);
  --zoro-home-title:var(--zoro-tv-title); --zoro-home-meta:var(--zoro-tv-meta);
 }
 html.layout-tv.zoro-ui .homePage #homeTab .sectionTitle { font-size:clamp(26px,1.5625vw,60px)!important; font-weight:700; }

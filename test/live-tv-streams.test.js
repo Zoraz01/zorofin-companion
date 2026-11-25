@@ -201,6 +201,14 @@ async function poolHarness(lines, extra = {}) {
 }
 
 const settle = () => new Promise(resolve => setTimeout(resolve, 50));
+// Waits for a condition instead of a fixed pause, so slow machines don't race a socket close.
+async function until(check, ms = 5000) {
+  const end = Date.now() + ms;
+  while (!(await check())) {
+    if (Date.now() > end) throw new Error('timed out waiting');
+    await settle();
+  }
+}
 
 test('parses M3U links and plain Xtream addresses without echoing passwords', () => {
   const lines = parseLines('http://a.test:80/get.php?username=u1&amp;password=p1&amp;type=m3u_plus  http://b.test/live/u2/p2');
@@ -236,7 +244,7 @@ test('each new channel takes a free login, and a third waits', async () => {
 
     // Closing ESPN frees login 1 for the next channel.
     espn.close();
-    await settle();
+    await until(async () => (await module.handle({ method: 'GET', segments: ['status'], query: new URLSearchParams(), viewer: { id: ME, admin: true } })).body.lines.inUse === 1);
     const next = await watch(port, '303', token);
     assert.equal(next.text, 'ts:u1:303');
 
@@ -270,8 +278,7 @@ test('a login the provider refuses falls over to the next, and redirects are fol
     assert.equal(reply.text, 'ts:u2:7');
     assert.equal(logs.length, 1);
     assert.doesNotMatch(logs[0], /broken|\/x\//);
-    await settle();
-    assert.equal(pool.busy(), 0);
+    await until(() => pool.busy() === 0);
   } finally {
     server.close(); provider.server.close();
   }

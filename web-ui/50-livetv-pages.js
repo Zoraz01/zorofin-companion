@@ -66,6 +66,23 @@
     return ratio >= 1.6 && ratio <= 1.95 ? 'photo' : 'logo';
   }
 
+  // Jellyfin asks for programme and channel art with fillWidth/fillHeight taken
+  // from the image's own shape, so the URL says whether it is a 16:9 picture or
+  // a logo without loading it twice. No size in the URL: treat it as a logo.
+  function artModeFromUrl(url) {
+    var text = String(url || '');
+    var width = /[?&]fillWidth=(\d+)/i.exec(text);
+    var height = /[?&]fillHeight=(\d+)/i.exec(text);
+    return width && height ? artMode(width[1], height[1]) : 'logo';
+  }
+
+  // Jellyfin writes guide times with seven fraction digits
+  // (2026-11-23T22:00:00.0000000Z). Some browsers only read three, so trim the rest.
+  function parseGuideDate(value) {
+    var text = String(value || '').replace(/(\.\d{3})\d+/, '$1');
+    return text ? Date.parse(text) : NaN;
+  }
+
   // Up to three letters for a channel with no logo: "beIN Sports Xtra" -> "BSX", "ESPN" -> "ESP".
   function channelInitials(name) {
     var words = normalizedText(name).replace(/[^A-Za-z0-9 ]+/g, ' ').split(' ').filter(Boolean);
@@ -91,6 +108,8 @@
       isHeaderShortcutLabel: isHeaderShortcutLabel,
       isTvChannelItem: isTvChannelItem,
       artMode: artMode,
+      artModeFromUrl: artModeFromUrl,
+      parseGuideDate: parseGuideDate,
       channelInitials: channelInitials,
       liveTabFromContent: liveTabFromContent,
     };
@@ -338,6 +357,9 @@
 
   function imageUrl(client, id, maxWidth) {
     var query = { maxWidth: maxWidth, quality: 90 };
+    // Without Jellyfin's API client (some app shells), Jellyfin still serves item images from
+    // its own path next to /web/, and they need no sign-in.
+    if (!client) return new URL('../Items/' + encodeURIComponent(id) + '/Images/Primary?maxWidth=' + maxWidth + '&quality=90', document.baseURI).href;
     if (client.getImageUrl) return client.getImageUrl(id, Object.assign({ type: 'Primary' }, query));
     return client.getUrl('Items/' + encodeURIComponent(id) + '/Images/Primary', query);
   }
@@ -362,8 +384,8 @@
   }
 
   function cardTimes(card) {
-    var start = Date.parse(card.getAttribute('data-startdate') || '');
-    var end = Date.parse(card.getAttribute('data-enddate') || '');
+    var start = parseGuideDate(card.getAttribute('data-startdate'));
+    var end = parseGuideDate(card.getAttribute('data-enddate'));
     return isFinite(start) && isFinite(end) && end > start ? { start: start, end: end } : null;
   }
 
@@ -454,12 +476,29 @@
     var guide = page.querySelector('.tvguide');
     var tab = liveTabFromContent(Boolean(guide && isVisible(guide)), Boolean(page.querySelector('.card[data-type="TvChannel"]')));
     if (page.getAttribute('data-zoro-ltv-tab') !== tab) page.setAttribute('data-zoro-ltv-tab', tab);
+    // Art, LIVE tags and progress need only the page; channel names need the API client.
     var client = apiClient();
-    if (!client) return;
-    loadChannelInfo();
+    if (client) loadChannelInfo();
     var now = Date.now();
     var cards = page.querySelectorAll(CARD_SELECTOR);
     for (var index = 0; index < cards.length; index += 1) decorateCard(cards[index], client, now);
+  }
+
+  // Programme and channel cards outside Jellyfin 12's Live TV page (the older
+  // Live TV page that Jellyfin's own phone and TV apps use, Home's On Now row,
+  // search): the stylesheet shows their art whole on a dark tile; real 16:9
+  // pictures are marked here so they fill the tile again.
+  var GUIDE_ART_PHOTO = 'zoroGuideArtPhoto';
+  function markGuideArt() {
+    var containers = document.querySelectorAll('.card[data-type="Program"] .cardImageContainer, .card[data-type="TvChannel"] .cardImageContainer');
+    for (var index = 0; index < containers.length; index += 1) {
+      var container = containers[index];
+      var img = container.querySelector('img');
+      var url = container.getAttribute('data-src') || (img && img.getAttribute('src')) || container.style.backgroundImage || '';
+      if (container.getAttribute('data-zoro-art-src') === url) continue;
+      container.setAttribute('data-zoro-art-src', url);
+      container.classList.toggle(GUIDE_ART_PHOTO, artModeFromUrl(url) === 'photo');
+    }
   }
 
   function clearLivePage12() {
@@ -470,7 +509,25 @@
     state.page12 = null;
   }
 
+  // Owner rule (Nov 24): no "On now" row anywhere, web included. Hide
+  // Jellyfin's own On Now sections (Home and the Live TV page); Sports & live
+  // events stays, and the Guide has every channel.
+  var ON_NOW = /^on now$/i;
+  function hideOnNowSections() {
+    var titles = document.querySelectorAll('.sectionTitle, .sectionTitle-cards, h2');
+    for (var index = 0; index < titles.length; index += 1) {
+      var title = titles[index];
+      if (!ON_NOW.test((title.textContent || '').trim())) continue;
+      var section = title.closest('.verticalSection, .homeSection, section') || title.parentElement;
+      if (section && !section.hasAttribute('data-zoro-on-now-hidden')) {
+        section.setAttribute('data-zoro-on-now-hidden', 'true');
+        section.style.display = 'none';
+      }
+    }
+  }
+
   function mount() {
+    hideOnNowSections();
     hideHeaderShortcuts();
     hideRecordingDrawerDestination();
     hideRecordingActions();
@@ -496,6 +553,7 @@
       document.documentElement.classList.add(ACTIVE_CLASS);
       try { decorateLivePage12(page12); } catch (_) { /* fail open: Jellyfin's own page stays usable */ }
     }
+    try { markGuideArt(); } catch (_) { /* fail open */ }
     resolveChannelDetail();
   }
 
@@ -511,7 +569,7 @@
 
   var observerOptions = {
     attributes: true,
-    attributeFilter: ['class', 'style', 'aria-label', 'title'],
+    attributeFilter: ['class', 'style', 'aria-label', 'title', 'src', 'data-src'],
     childList: true,
     subtree: true,
   };

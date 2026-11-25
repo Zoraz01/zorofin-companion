@@ -194,6 +194,7 @@
   function episodeCard(item, currentItemId) {
     var card = document.createElement('a');
     var isCurrent = String(item.Id) === String(currentItemId);
+    var unavailable=item.IsMissing===true||item.IsVirtualUnaired===true||item.LocationType==='Virtual';
     card.className = 'zoroEpisodeCard focusable' + (isCurrent ? ' zoroEpisodeCard-current' : '');
     card.href = itemHref(item);
     card.setAttribute('data-id', item.Id);
@@ -251,6 +252,7 @@
     overview.className = 'zoroEpisodeOverview';
     overview.textContent = item.Overview || 'Open the episode for details and playback options.';
     body.append(eyebrow, title, overview);
+    if(unavailable){var missing=document.createElement('span');missing.className='zoroEpisodeUnavailable';missing.textContent='Unavailable';body.appendChild(missing);}
     card.append(visual, body);
     return card;
   }
@@ -262,13 +264,37 @@
     status.setAttribute('data-state', stateName || '');
   }
 
+  function episodeFeedback(navigator, kind) {
+    var old=navigator.querySelector('.zoroEpisodeFeedback');if(old)old.remove();
+    if(!kind)return;
+    var box=document.createElement('div');box.className='zoroEpisodeFeedback padded-left padded-right';box.setAttribute('role',kind==='error'?'alert':'status');
+    var title=document.createElement('h3'),detail=document.createElement('p');
+    title.textContent=kind==='loading'?'Loading episodes…':kind==='seasons-loading'?'Loading seasons…':kind==='error'?'Episodes couldn’t load':kind==='no-seasons'?'No seasons available':'This season has no episodes';
+    detail.textContent=kind==='loading'||kind==='seasons-loading'?'Your place is saved.':kind==='error'?'Try again, or choose another season.':kind==='no-seasons'?'No seasons are available to your account yet.':'Choose another season, or check again when episodes have been added.';
+    box.append(title,detail);
+    if(kind==='loading'||kind==='seasons-loading'){
+      box.setAttribute('aria-busy','true');var skeleton=document.createElement('div');skeleton.className='zoroEpisodeSkeleton';skeleton.setAttribute('aria-hidden','true');
+      for(var i=0;i<3;i++){var row=document.createElement('div');row.className='zoroEpisodeSkeletonRow';row.append(document.createElement('span'),document.createElement('span'));skeleton.appendChild(row);}box.appendChild(skeleton);
+    }else{
+      var actions=document.createElement('div');actions.className='zoroEpisodeFeedbackActions';
+      var retry=document.createElement('button');retry.type='button';retry.className='zoroEpisodeRetry focusable';retry.textContent='Try again';retry.addEventListener('click',function(){(navigator.zoroRetry&&navigator.zoroRetry());});actions.appendChild(retry);
+      var select=navigator.querySelector('select');
+      if(select&&select.options.length>1){var choose=document.createElement('button');choose.type='button';choose.className='zoroEpisodeChoose focusable';choose.textContent='Choose another season';choose.addEventListener('click',function(){select.focus();try{if(select.showPicker)select.showPicker();}catch(_){}});actions.appendChild(choose);}
+      box.appendChild(actions);
+    }
+    navigator.querySelector('.zoroEpisodeScroller').before(box);
+  }
+
   function renderEpisodeCards(navigator, episodes, currentItemId) {
     var container = navigator.querySelector('.zoroEpisodeItems');
     var scroller = navigator.querySelector('.zoroEpisodeScroller');
     container.textContent = '';
     if (scroller) scroller.scrollLeft = 0;
+    episodeFeedback(navigator, null);
+    if (episodes === null) { setNavigatorStatus(navigator, '', 'loading'); episodeFeedback(navigator, 'loading'); return; }
     if (!episodes.length) {
-      setNavigatorStatus(navigator, 'No episodes are available in this season.', 'empty');
+      episodeFeedback(navigator, 'empty');
+      setNavigatorStatus(navigator, '', 'empty');
       return;
     }
     setNavigatorStatus(navigator, episodes.length + (episodes.length === 1 ? ' episode' : ' episodes'));
@@ -286,15 +312,18 @@
     }
   }
 
+  function readEpisodeApi(read){var timer;return Promise.race([Promise.resolve().then(read),new Promise(function(_,reject){timer=root.setTimeout(function(){reject(new Error('Episodes timed out'));},10000);})]).finally(function(){root.clearTimeout(timer);});}
+
   function loadSeasonEpisodes(seriesId, seasonId) {
     if (state.episodeCache[seasonId]) return Promise.resolve(state.episodeCache[seasonId]);
     var client = apiClient(), serial=state.requestSerial;
-    return client.getEpisodes(seriesId, {
+    return readEpisodeApi(function(){return client.getEpisodes(seriesId, {
       SeasonId: seasonId,
       UserId: client.getCurrentUserId(),
       Fields: ITEM_FIELDS
-    }).then(function (result) {
-      var episodes = sortEpisodes(result && result.Items);
+    });}).then(function (result) {
+      if(!result || !Array.isArray(result.Items))throw new Error('Episodes unavailable');
+      var episodes = sortEpisodes(result.Items);
       if(serial===state.requestSerial)state.episodeCache[seasonId] = episodes;
       return episodes;
     });
@@ -334,7 +363,7 @@
     fieldLabel.textContent = 'Season';
     var select = document.createElement('select');
     select.className = 'emby-select emby-select-withcolor zoroSeasonSelect focusable';
-    select.setAttribute('aria-label', 'Choose season');
+    select.setAttribute('aria-label', 'Choose season');select.disabled=!seasons.length;
     seasons.forEach(function (season) {
       var option = document.createElement('option');
       option.value = season.Id;
@@ -368,62 +397,59 @@
     var buttons=page.querySelector('.mainDetailButtons');
     if(buttons && !buttons.querySelector('.zoroEpisodeJump')){
       var jump=document.createElement('button');jump.type='button';jump.className='zoroEpisodeJump focusable';jump.textContent='Seasons & episodes';
-      jump.addEventListener('click',function(){section.scrollIntoView({block:'start',behavior:'auto'});select.focus({preventScroll:true});});buttons.appendChild(jump);
+      buttons.appendChild(jump);
     }
+    if(buttons&&buttons.querySelector('.zoroEpisodeJump'))buttons.querySelector('.zoroEpisodeJump').onclick=function(){section.scrollIntoView({block:'start',behavior:'auto'});select.focus({preventScroll:true});};
     items.addEventListener('keydown',function(event){
       if(event.key!=='ArrowLeft' && event.key!=='ArrowRight')return;
       var cards=Array.prototype.slice.call(items.querySelectorAll('a')),at=cards.indexOf(document.activeElement),next=at+(event.key==='ArrowRight'?1:-1);
       if(at<0 || next<0 || next>=cards.length)return;
       event.preventDefault();event.stopPropagation();cards[next].focus();cards[next].scrollIntoView({block:'nearest',inline:'nearest',behavior:'auto'});
     });
-    var selectedBefore=select.value;
-
-
-    select.addEventListener('change', function () {
-      var selectedSeasonId = select.value;
-      var hadFocus=document.activeElement===select;
-      select.disabled = true;
-      section.setAttribute('aria-busy', 'true');
-      setNavigatorStatus(section, 'Loading episodes…', 'loading');
-      loadSeasonEpisodes(item.SeriesId, selectedSeasonId).then(function (episodes) {
-        if (state.itemId !== item.Id || !document.body.contains(section)) return;
-        renderEpisodeCards(section, episodes, item.Id);selectedBefore=selectedSeasonId;
-      }).catch(function () {
-        if (document.body.contains(section)) {
-          select.value=selectedBefore;
-          setNavigatorStatus(section, 'This season could not be loaded. Try again.', 'error');
-        }
-      }).then(function () {
-        if (document.body.contains(section)) {
-          select.disabled = false;
-          section.removeAttribute('aria-busy');
-          if(hadFocus && document.activeElement===document.body)select.focus({preventScroll:true});
-        }
-      });
-    });
+    var selectionRun=0,targetSeason=item.SeasonId,targetEpisode=item.ZoroCurrentEpisodeId||(item.Type==='Episode'?item.Id:null);
+    function loadSelected(){
+      var selectedSeasonId=select.value,run=++selectionRun,serial=state.requestSerial,client=apiClient(),identity=state.identity;
+      section.setAttribute('aria-busy','true');items.replaceChildren();setNavigatorStatus(section,'','');episodeFeedback(section,'loading');
+      section.zoroRetry=function(){delete state.episodeCache[select.value];loadSelected();};
+      function active(){var current=apiClient();return run===selectionRun&&serial===state.requestSerial&&state.itemId===item.Id&&document.body.contains(section)&&current&&identity===current.serverId()+':'+current.getCurrentUserId()+':'+(current.accessToken?current.accessToken():'');}
+      loadSeasonEpisodes(item.SeriesId,selectedSeasonId).then(function(episodes){
+        if(!active())return;renderEpisodeCards(section,episodes,targetEpisode||item.Id);
+      }).catch(function(){if(active()){setNavigatorStatus(section,'','error');episodeFeedback(section,'error');}}).then(function(){if(active())section.removeAttribute('aria-busy');});
+    }
+    section.zoroLoadSeason=loadSelected;
+    select.addEventListener('change',loadSelected);
+    if(seasons.length&&targetSeason&&targetEpisode){
+      var jumpCurrent=document.createElement('button');jumpCurrent.type='button';jumpCurrent.className='zoroEpisodeCurrent focusable';jumpCurrent.textContent=item.Type==='Episode'?'Current episode':'Recent episode';
+      jumpCurrent.addEventListener('click',function(){select.value=targetSeason;loadSelected();});field.appendChild(jumpCurrent);
+    }
     return section;
   }
 
-  function mountEpisodeNavigation(page, item, serial) {
-    var client=apiClient(), userId=client.getCurrentUserId(), seriesId=item.Type==='Series'?item.Id:item.SeriesId;
-    return client.getSeasons(seriesId,{userId:userId,Fields:ITEM_FIELDS}).then(function(result){
-      if(serial!==state.requestSerial || state.itemId!==item.Id || !isVisible(page))return;
-      var seasons=sortSeasons(result && result.Items);if(!seasons.length)throw new Error('season data unavailable');
-      var preferred=item.Type==='Season'?item.Id:item.SeasonId;
-      var recent=item.Type==='Series' && typeof client.getItems==='function' ? client.getItems(userId,{ParentId:seriesId,Recursive:true,IncludeItemTypes:'Episode',SortBy:'DatePlayed',SortOrder:'Descending',Limit:1,EnableUserData:true}).catch(function(){return {Items:[]};}) : Promise.resolve({Items:[]});
-      return recent.then(function(latest){
-        if(serial!==state.requestSerial || state.itemId!==item.Id)return;
-        var episode=latest.Items && latest.Items[0];
-        if(episode && episode.UserData && episode.UserData.LastPlayedDate)preferred=episode.SeasonId;
-        var season=seasons.filter(function(s){return s.Id===preferred;})[0] || seasons.filter(function(s){return Number(s.IndexNumber)>0;})[0] || seasons[0];
-        return loadSeasonEpisodes(seriesId,season.Id).then(function(episodes){
-          if(serial!==state.requestSerial || state.itemId!==item.Id || !isVisible(page))return;
-          state.seasons=seasons;
-          var context=Object.assign({},item,{SeriesId:seriesId,SeasonId:season.Id});
-          createNavigator(page,context,seasons,episodes);
+  function mountEpisodeNavigation(page,item,serial){
+    var client=apiClient(),userId=client.getCurrentUserId(),seriesId=item.Type==='Series'?item.Id:item.SeriesId;
+    if(typeof client.getSeasons!=='function'||typeof client.getEpisodes!=='function')throw new Error('native episode API unavailable');
+    var context=Object.assign({},item,{SeriesId:seriesId}),section=createNavigator(page,context,[],null);
+    episodeFeedback(section,'seasons-loading');
+    var source=state.identity;
+    function active(){var current=apiClient();return serial===state.requestSerial&&state.itemId===item.Id&&isVisible(page)&&current&&source===current.serverId()+':'+current.getCurrentUserId()+':'+(current.accessToken?current.accessToken():'');}
+    function load(){
+      if(!active())return;episodeFeedback(section,'seasons-loading');
+      return readEpisodeApi(function(){return client.getSeasons(seriesId,{userId:userId,Fields:ITEM_FIELDS});}).then(function(result){
+        if(!active())return;if(!result||!Array.isArray(result.Items))throw new Error('invalid seasons');
+        var seasons=sortSeasons(result.Items);
+        if(!seasons.length){episodeFeedback(section,'no-seasons');section.zoroRetry=load;return;}
+        var preferred=item.Type==='Season'?item.Id:item.SeasonId;
+        var recent=item.Type==='Series'&&typeof client.getItems==='function'?readEpisodeApi(function(){return client.getItems(userId,{ParentId:seriesId,Recursive:true,IncludeItemTypes:'Episode',SortBy:'DatePlayed',SortOrder:'Descending',Limit:1,EnableUserData:true});}).catch(function(){return {Items:[]};}):Promise.resolve({Items:[]});
+        return recent.then(function(latest){
+          if(!active())return;var episode=latest.Items&&latest.Items[0];
+          if(episode&&episode.UserData&&episode.UserData.LastPlayedDate)preferred=episode.SeasonId;
+          var season=seasons.filter(function(s){return s.Id===preferred;})[0]||seasons.filter(function(s){return Number(s.IndexNumber)>0;})[0]||seasons[0];
+          state.seasons=seasons;context=Object.assign({},item,{SeriesId:seriesId,SeasonId:season.Id,ZoroCurrentEpisodeId:item.Type==='Episode'?item.Id:episode&&episode.UserData&&episode.UserData.LastPlayedDate?episode.Id:null});
+          section=createNavigator(page,context,seasons,null);section.zoroLoadSeason();
         });
-      });
-    });
+      }).catch(function(){if(active()){episodeFeedback(section,'error');section.zoroRetry=load;}});
+    }
+    section.zoroRetry=load;return load();
   }
 
   function mountCurrentDetail(page, itemId) {

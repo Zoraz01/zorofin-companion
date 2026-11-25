@@ -39,9 +39,11 @@ function sendFile(res, reply) {
   // this one at any time, and the descriptor keeps reading the copy we sized.
   let fd;
   let size;
+  let stat;
   try {
     fd = fs.openSync(reply.file, 'r');
-    size = fs.fstatSync(fd).size;
+    stat = fs.fstatSync(fd);
+    size = stat.size;
   } catch (_) {
     if (fd !== undefined) fs.closeSync(fd);
     return send(res, 404, { error: 'Not found' });
@@ -49,6 +51,9 @@ function sendFile(res, reply) {
   res.writeHead(reply.status, {
     'Content-Type': reply.contentType || 'application/octet-stream',
     'Content-Length': size,
+    // Lets a reader (the Live TV guide) notice a new file with a cheap HEAD.
+    'Last-Modified': new Date(stat.mtimeMs).toUTCString(),
+    ETag: `W/"${size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
     'Cache-Control': reply.cacheControl || 'no-store',
     'X-Content-Type-Options': 'nosniff',
   });

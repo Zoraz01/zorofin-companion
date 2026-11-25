@@ -51,6 +51,31 @@
     if (tags.Primary) return { id: item.Id, type: 'Primary', tag: tags.Primary };
     return null;
   }
+  // Two card styles, as in the apps: wide cards for Continue Watching, live and
+  // episode rows; same-size posters for every movie and show row.
+  var FORMATS = ['4K', '8K', '1080p', '720p', 'HDR', 'HDR10', 'HDR10+', 'Dolby Vision', 'HLG'];
+  var LIVE_TYPES = ['Episode', 'TvChannel', 'Program', 'LiveTvProgram'];
+  function isWide(section) {
+    if (section.id === 'continue-watching' || section.id === 'sports') return true;
+    return section.cards.some(function (card) {
+      var item = (card && card.item) || {};
+      return LIVE_TYPES.indexOf(item.Type) >= 0 || !!(card && card.startsAt);
+    });
+  }
+  function posterFor(card) {
+    var item = (card && card.item) || {}, tags = item.ImageTags || {};
+    if (tags.Primary) return { id: item.Id, type: 'Primary', tag: tags.Primary };
+    return imageFor(card);
+  }
+  // The one line under a poster (apps' homeCardLabel): a short movie's length,
+  // the row's own label such as "#1", or the year.
+  function posterMeta(section, card) {
+    var item = card.item || {};
+    if (section.id === 'short-movies' && card.subtitle) return card.subtitle;
+    var context = (card.badges || []).filter(function (b) { return FORMATS.indexOf(b) < 0; });
+    if (context.length) return context[0];
+    return item.ProductionYear ? String(item.ProductionYear) : '';
+  }
   function metaFor(section, card) {
     var item = card.item || {};
     if ((section.id === 'short-movies' || section.id === 'sports') && card.subtitle) return card.subtitle;
@@ -59,6 +84,21 @@
       return [code, item.Name].filter(Boolean).join(' · ');
     }
     return item.ProductionYear ? String(item.ProductionYear) : '';
+  }
+  // "Your teams" cards lead with the game, then the channel to watch it on. Crests come
+  // from the sports artwork catalogue (zorofin-live-events.js matches the fixture).
+  // The plugin sends the matchup and crest image paths (server-relative, Zorofin/Web/ui/live-tv-logos/art/...).
+  function serverCrests(card) {
+    var teams = card && card.matchup, crests = card && card.crests;
+    var ok = Array.isArray(teams) && Array.isArray(crests) && teams.length === 2 && crests.length === 2 &&
+      teams.every(function (t) { return typeof t === 'string' && t.length > 0 && t.length <= 80; }) &&
+      crests.every(function (c) { return typeof c === 'string' && /^Zorofin\/Web\/ui\/live-tv-logos\/art\/sports-[a-f0-9]{24}-[a-f0-9]{8}\.(?:png|jpg)$/.test(c); });
+    return ok ? { teams: teams.slice(), logos: crests.slice(), server: true } : null;
+  }
+  function sportsCard(card, crests) {
+    var item = (card && card.item) || {};
+    var game = crests && crests.teams && crests.teams.length === 2 ? crests.teams.join(' vs ') : String((card && card.subtitle) || '');
+    return { title: game || item.Name || 'Live sports', meta: game ? String(item.Name || '') : '', logos: crests ? crests.logos : [] };
   }
   // Watched share for Continue Watching, 0 to 100, or null without a position.
   function progress(card) {
@@ -96,6 +136,7 @@
     var doc = root.document, TTL = 2 * 60000;
     var identity = '', generation = 0, feed = null, updated = 0, pending = false, scheduled = false;
     var rendered = '', timer = null, dialogClose = null, missing = false;
+    var crestCatalogue = null, crestAt = 0, crestPending = false, CREST_TTL = 10 * 60000;
 
     function who() {
       try {
@@ -137,6 +178,34 @@
         return response.status === 204 ? null : response.json();
       });
     }
+    // Catalogue paths start /live-tv-logos/art/; the companion pack serves them next to its own files.
+    function artPath(path) {
+      return root.ZorofinWeb && root.ZorofinWeb.base ? root.ZorofinWeb.base + path.slice(1) : '/web/zorofin' + path;
+    }
+    function crestsFor(card) {
+      var sent = serverCrests(card);
+      if (sent) return sent;
+      var tools = root.zorofinLiveEventTools;
+      if (!crestCatalogue || !tools || typeof tools.programCrests !== 'function') return null;
+      try {
+        return tools.programCrests({ Name: card.subtitle, StartDate: card.startsAt }, crestCatalogue);
+      } catch (_) { return null; }
+    }
+    // Only when the server publishes sports artwork, and only while a game is on the row.
+    function loadCrests(sections) {
+      var sports = sections.filter(function (s) { return s.id === 'sports'; })[0];
+      if (crestPending || Date.now() - crestAt < CREST_TTL || !sports || sports.cards.every(serverCrests)) return;
+      if (!root.zorofinLiveEventTools || (root.ZorofinWeb && !root.ZorofinWeb.liveArtwork && !doc.documentElement.classList.contains('zorofin-sports-art'))) return;
+      crestPending = true; crestAt = Date.now();
+      var epoch = generation;
+      root.fetch(artPath('/live-tv-logos/art/events.json') + '?v=' + Math.floor(Date.now() / CREST_TTL), { credentials: 'omit' }).then(function (response) {
+        if (!response.ok) throw new Error('artwork unavailable');
+        return response.json();
+      }).then(function (data) {
+        if (epoch !== generation || !data || data.version !== 2 || !Array.isArray(data.events)) return;
+        crestCatalogue = data; rendered = ''; render();
+      }).catch(function () {}).then(function () { crestPending = false; });
+    }
     function detailUrl(id) {
       return '#/details?id=' + encodeURIComponent(id) + '&serverId=' + encodeURIComponent(root.ApiClient.serverId());
     }
@@ -156,9 +225,14 @@
         'html.' + ON + ' #homeTab .sections>.zoroHomeRow{display:block!important;}',
         '.zoroHomeRow .zoroBrowseArtwork{position:relative;overflow:hidden;border-radius:12px;}',
         '.zoroHomeRow span.zoroBrowsePoster{display:block;aspect-ratio:16/9;background:#242c29;}',
+        '.zoroHomeRow.zoroPosterRow span.zoroBrowsePoster{aspect-ratio:2/3;}',
         '.zoroHomeRow .zph-badges{position:absolute;left:8px;top:8px;display:flex;flex-wrap:wrap;gap:4px;pointer-events:none;}',
         '.zoroHomeRow .zph-badge{padding:3px 8px;border-radius:999px;background:#111513d1;color:#f5f7f5;font-size:12px;line-height:1.3;font-weight:700;letter-spacing:.02em;}',
         '.zoroHomeRow .zph-context{display:block;margin-top:4px;color:var(--zoro-ui-accent,#42d779);font-size:var(--zoro-home-meta,.85em);font-weight:600;line-height:1.3;}',
+        '.zoroHomeRow[data-zoro-home-section="sports"] .zoroBrowseTitle{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}',
+        '.zoroHomeRow .zph-crests{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:7%;background:radial-gradient(circle at 50% 40%,#2a3530,#151b18);}',
+        '.zoroHomeRow .zph-crests img{width:28%;height:56%;object-fit:contain;filter:drop-shadow(0 4px 10px #0008);}',
+        '.zoroHomeRow .zph-crests span{color:#ffffffb3;font-size:.9em;font-weight:800;letter-spacing:.08em;}',
         '.zoroHomeRow .zph-progress{position:absolute;left:10px;right:10px;bottom:10px;height:4px;border-radius:999px;background:#ffffff40;overflow:hidden;pointer-events:none;}',
         '.zoroHomeRow .zph-progress>span{display:block;height:100%;border-radius:inherit;background:var(--zoro-ui-accent-strong,#25b85f);}',
         '.zph-overlay{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.8);}',
@@ -185,19 +259,33 @@
     function cardNode(section, card) {
       var item = card.item || {};
       var link = node('a', 'zoroBrowseCard focusable');
-      link.href = detailUrl(item.Id || card.id); link.dataset.id = item.Id || card.id;
+      link.href = detailUrl(item.Id || card.id); link.dataset.id = item.Id || card.id; link.dataset.type = item.Type || '';
       var name = item.Type === 'Episode' && item.SeriesName ? item.SeriesName : (item.Name || 'Untitled');
-      var meta = metaFor(section, card);
+      var wide = section.wide !== false;
+      var meta = wide ? metaFor(section, card) : posterMeta(section, card);
+      var crests = section.id === 'sports' ? crestsFor(card) : null;
+      var game = section.id === 'sports' ? sportsCard(card, crests) : null;
+      if (game) { name = game.title; meta = game.meta; }
       link.setAttribute('aria-label', [name, meta].concat(card.badges || []).filter(Boolean).join(', '));
-      var artwork = node('span', 'zoroBrowseArtwork'), image = imageFor(card);
+      var artwork = node('span', 'zoroBrowseArtwork'), image = wide ? imageFor(card) : posterFor(card);
       var art = node(image ? 'img' : 'span', 'zoroBrowsePoster');
       if (image) {
-        art.alt = ''; art.width = 480; art.height = 270; art.loading = 'lazy'; art.decoding = 'async';
+        art.alt = ''; art.width = wide ? 480 : 320; art.height = wide ? 270 : 480; art.loading = 'lazy'; art.decoding = 'async';
         var options = { type: image.type, maxWidth: 640, quality: 85 };
         if (image.tag) options.tag = image.tag;
         art.src = root.ApiClient.getImageUrl(image.id, options);
       }
       artwork.appendChild(art);
+      if (game && game.logos.length === 2) {
+        var pair = node('span', 'zph-crests'); pair.setAttribute('aria-hidden', 'true');
+        game.logos.forEach(function (path, i) {
+          if (i) pair.appendChild(node('span', '', 'VS'));
+          var crest = node('img'); crest.alt = ''; crest.loading = 'lazy'; crest.decoding = 'async';
+          crest.addEventListener('error', function () { pair.remove(); }, { once: true });
+          crest.src = crests && crests.server ? url(path) : artPath(path); pair.appendChild(crest);
+        });
+        artwork.appendChild(pair);
+      }
       var quality = section.id === 'showcase' ? (card.badges || []) : [];
       if (quality.length) {
         var badges = node('span', 'zph-badges');
@@ -218,7 +306,7 @@
       link.appendChild(artwork);
       link.appendChild(node('strong', 'zoroBrowseTitle', name));
       if (meta) link.appendChild(node('span', 'zoroBrowseMeta', meta));
-      var context = section.id === 'showcase' || section.id === 'popular' ? [] : (card.badges || []);
+      var context = !wide || section.id === 'showcase' || section.id === 'popular' ? [] : (card.badges || []);
       if (context.length) link.appendChild(node('span', 'zph-context', context.join(' · ')));
       return link;
     }
@@ -239,14 +327,16 @@
       var sections = visibleSections(feed);
       // Nothing to show yet (a new server, or every row empty): keep Jellyfin's own Home.
       if (!sections.length) { clearRows(); return; }
-      var signature = JSON.stringify(sections.map(function (s) { return [s.id, s.title, s.cards.map(function (c) { return c.id; })]; }));
+      loadCrests(sections);
+      var signature = JSON.stringify(sections.map(function (s) { return [s.id, s.title, s.cards.map(function (c) { return c.id; })]; })) + (crestCatalogue ? ':crests' : '');
       var existing = ownRows();
       if (existing.length === sections.length && signature === rendered && existing.every(function (row) { return row.parentNode === container; })) return;
       var active = doc.activeElement, focusId = active && active.closest && active.closest('.zoroHomeRow') ? active.getAttribute('href') : null;
       ownRows().forEach(function (row) { row.remove(); });
       styles();
       var rows = sections.map(function (section, index) {
-        var row = node('section', 'zoroBrowseRow verticalSection zoroHomeRow');
+        section.wide = isWide(section);
+        var row = node('section', 'zoroBrowseRow verticalSection zoroHomeRow' + (section.wide ? '' : ' zoroPosterRow'));
         row.id = elementId(section); row.setAttribute('aria-labelledby', row.id + '-title');
         row.setAttribute('data-zoro-home-section', section.id);
         row.setAttribute('data-zoro-placement', section.placement);
@@ -310,12 +400,12 @@
       var overlay = node('div', 'zph-overlay'), dialog = node('div', 'zph-dialog');
       dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'zphDialogTitle');
       var title = node('h2', '', 'See your teams on Home'); title.id = 'zphDialogTitle'; dialog.appendChild(title);
-      dialog.appendChild(node('p', '', 'Follow teams to personalize upcoming sports. Everything else on Home is selected automatically.'));
+      dialog.appendChild(node('p', '', 'Home shows a game when one of your teams is on now or about to start. Everything else on Home is selected automatically.'));
       var label = node('label', '', 'Your teams'); label.htmlFor = 'zphTeams';
       var teams = node('input'); teams.type = 'text'; teams.id = 'zphTeams'; teams.setAttribute('autocomplete', 'off');
       teams.placeholder = 'New York Knicks, New York Yankees'; teams.disabled = true;
       dialog.appendChild(label); dialog.appendChild(teams);
-      dialog.appendChild(node('p', 'zph-hint', 'Use full team names as they appear in the guide, separated by commas. Up to 12 teams. Leave blank to see all upcoming sports.'));
+      dialog.appendChild(node('p', 'zph-hint', 'Use full team names as they appear in the guide, separated by commas. Up to 12 teams. Leave blank to use the server’s favorite teams, if it has any.'));
       var status = node('p', 'zph-status'); status.setAttribute('role', 'status'); dialog.appendChild(status);
       var actions = node('div', 'zph-actions');
       var cancel = node('button', '', 'Cancel'); cancel.type = 'button';
@@ -366,6 +456,6 @@
 
   return {
     mount: mount, visibleSections: visibleSections, elementId: elementId, imageFor: imageFor,
-    metaFor: metaFor, progress: progress, parseTeams: parseTeams, mergeTeams: mergeTeams, readTeams: readTeams
+    metaFor: metaFor, sportsCard: sportsCard, serverCrests: serverCrests, progress: progress, parseTeams: parseTeams, mergeTeams: mergeTeams, readTeams: readTeams
   };
 }));

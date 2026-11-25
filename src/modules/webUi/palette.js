@@ -62,6 +62,10 @@ function targetFor(colors, accent) {
 }
 
 function mapRgb(r, g, b, target) {
+  // Native clients use the operator's exact colour for jade and primary actions.
+  if ((r === 114 && g === 231 && b === 155) || (r === 28 && g === 185 && b === 86)) {
+    return hexToRgb(target.key);
+  }
   const { h, s, l } = rgbToHsl(r, g, b);
   if (s < 0.04 || h < GREEN.from || h > GREEN.to) return null;
   const nh = target.h + (h - BASE.h);
@@ -74,6 +78,7 @@ const hex2 = v => v.toString(16).padStart(2, '0');
 function recolor(text, target) {
   if (!target) return text;
   return text
+    .replace(/(--jf-palette-primary-mainChannel:\s*)114 231 155\b/g, (_, prefix) => prefix + hexToRgb(target.key).join(' '))
     .replace(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi, (match) => {
       const mapped = mapRgb(...hexToRgb(match), target);
       return mapped ? `#${mapped.map(hex2).join('')}` : match;

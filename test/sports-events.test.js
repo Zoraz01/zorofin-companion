@@ -249,3 +249,17 @@ test('without a Networks list, games land on channels named after their broadcas
   await off.module.refresh();
   assert.match(text(await off.module.handlePublic({ segments: [TOKEN, 'guide.xml'] })), /SportsCenter/);
 });
+
+test('a game under two broadcaster names that map to one channel is listed once', async () => {
+  const game = SCOREBOARDS['basketball/nba|20261106'].events[0];
+  const saved = game.competitions[0].broadcasts;
+  game.competitions[0].broadcasts = [{ market: 'national', names: ['ESPN'] }, { market: 'home', names: ['NBCSN'] }];
+  try {
+    const { module } = harness({ ZOROFIN_SPORTS_NETWORKS: 'ESPN=US| ESPN HD, NBCSN=US| ESPN HD' });
+    await module.refresh();
+    const guide = text(await module.handlePublic({ segments: [TOKEN, 'guide.xml'] }));
+    assert.equal(guide.match(/<programme channel="ESPN\.us"[^>]*><title lang="en">NBA Basketball — Los Angeles Lakers at Boston Celtics/g).length, 1);
+  } finally {
+    game.competitions[0].broadcasts = saved;
+  }
+});

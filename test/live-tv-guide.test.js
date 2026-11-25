@@ -39,9 +39,12 @@ function harness({ settings = {}, guide = GUIDE } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zorofin-guide-'));
   const calls = [];
   const state = { guide, guideStatus: 200 };
-  const fetcher = async url => {
-    calls.push(url);
-    if (url === 'http://guide.test/xmltv.xml') return { status: state.guideStatus, type: 'application/xml', body: Buffer.from(state.guide) };
+  const fetcher = async (url, options = {}) => {
+    calls.push(options.method === 'HEAD' ? `HEAD ${url}` : url);
+    if (url === 'http://guide.test/xmltv.xml') {
+      const version = state.version || '';
+      return { status: state.guideStatus, type: 'application/xml', body: options.method === 'HEAD' ? Buffer.alloc(0) : Buffer.from(state.guide), version };
+    }
     if (url.startsWith('https://api.tvmaze.com/')) {
       return { status: 200, type: 'application/json', body: Buffer.from(JSON.stringify({ name: 'Seinfeld & Friends', image: { medium: 'https://img.example/show.png' } })) };
     }
@@ -218,4 +221,42 @@ test('logo rules are checked when read from settings', () => {
   assert.equal(overrideFor('NBC East', rules).logo, 'nbc-us.png');
   assert.equal(overrideFor('NBCSN', rules), null, 'whole words only');
   assert.throws(() => settingsFrom({ ZOROFIN_GUIDE_SOURCE_URL: 'http://g/x.xml', ZOROFIN_GUIDE_TOKEN: TOKEN, ZOROFIN_GUIDE_LOGO_OVERRIDES: 'oops' }), /LOGO_OVERRIDES/);
+});
+
+test('a changed source is rebuilt at once, an unchanged one is left alone', async () => {
+  const h = harness();
+  h.state.version = 'W/"1"';
+  await h.module.refresh();
+  assert.equal(await h.module.watch(), false, 'same version: no rebuild');
+  h.state.version = 'W/"2"';
+  h.state.guide = GUIDE.replace('<display-name>Sports 1</display-name>', '<display-name>Sports One</display-name>');
+  assert.equal(await h.module.watch(), true, 'new version: rebuilt');
+  assert.match(await guideText(h.module), /Sports One/);
+  assert.equal(await h.module.watch(), false);
+  // A source without ETag or Last-Modified waits for the refresh interval.
+  const plain = harness();
+  await plain.module.refresh();
+  assert.equal(await plain.module.watch(), false);
+});
+
+test('public file replies carry Last-Modified and an ETag for HEAD checks', async () => {
+  const h = harness();
+  await h.module.refresh();
+  const registry = createRegistry(['liveTvGuide'], {}, {}, { liveTvGuide: () => h.module });
+  const server = createServer({ config: { bridgeSecret: 'x'.repeat(32) }, registry });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const { fetchBuffer } = require('../src/modules/liveTvGuide/sources');
+    const url = `http://127.0.0.1:${server.address().port}/v1/public/liveTvGuide/${TOKEN}/guide.xml`;
+    const head = await fetchBuffer(url, { method: 'HEAD', maxBytes: 1024 });
+    assert.equal(head.status, 200);
+    assert.match(head.version, /^W\/"[0-9a-f]+-[0-9a-f]+"$/);
+    assert.equal(head.body.length, 0);
+    const full = await fetchBuffer(url, { maxBytes: 1 << 20 });
+    assert.equal(full.version, head.version);
+    assert.match(full.body.toString(), /Bulls vs Lakers/);
+  } finally {
+    server.closeAllConnections && server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
 });

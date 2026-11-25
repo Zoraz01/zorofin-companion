@@ -204,7 +204,7 @@
     resultTimer: null,
     section: null,
     resultKey: '',
-    renderedQuery: '',
+    renderedQuery: '', searchType:'all', typed:null, typedRun:0,
     identity: '',
     catalog: [],
     catalogAt: 0,
@@ -463,7 +463,7 @@
       state.catalogAt = 0;
       state.loading = false;
       state.failedAt = 0;
-      state.generation += 1;
+      state.generation += 1; state.typedRun++; state.typed=null; state.searchType='all';
       state.resultKey = '';
       if(state.page)state.page.classList.remove('zoroSearchBrowsing');
       if (state.section) { state.section.remove(); state.section = null; }
@@ -569,7 +569,7 @@
 
   function resultCard(match, current) {
     var item = match.item, card = document.createElement('a');
-    card.className = 'zoroSearchCard focusable';
+    card.className = 'zoroSearchCard focusable'+(state.query?' zoroSearchResultRow':'');
     card.href = '#/details?id=' + encodeURIComponent(item.Id) + '&serverId=' + encodeURIComponent(item.ServerId || current.client.serverId());
     card.setAttribute('data-id', item.Id);
     card.setAttribute('aria-label', item.Name + (item.ProductionYear ? ', ' + item.ProductionYear : '') + (match.reason ? ', ' + match.reason : ''));
@@ -577,9 +577,11 @@
     poster.className = 'zoroSearchPoster';
     poster.alt = ''; poster.width = 240; poster.height = 360;
     poster.loading = 'lazy'; poster.decoding = 'async';
-    if (item.ImageTags.Primary && typeof current.client.getImageUrl === 'function') {
-      poster.src = current.client.getImageUrl(item.Id, { type: 'Primary', tag: item.ImageTags.Primary,
-        maxWidth: isTelevisionLayout() ? 320 : 240, quality: 80 });
+    if (typeof current.client.getImageUrl === 'function') {
+      var imageType='Primary',tag=item.ImageTags.Primary;
+      if(state.query&&item.ImageTags.Thumb){imageType='Thumb';tag=item.ImageTags.Thumb;}
+      else if(state.query&&(item.BackdropImageTags&&item.BackdropImageTags.length)){imageType='Backdrop';tag=item.BackdropImageTags[0];}
+      if(tag){if(poster.tagName!=='IMG'){poster=document.createElement('img');poster.className='zoroSearchPoster';poster.alt='';poster.loading='lazy';poster.decoding='async';}poster.src=current.client.getImageUrl(item.Id,{type:imageType,tag:tag,maxWidth:state.query?400:isTelevisionLayout()?320:240,quality:80});}
     }
     var title = document.createElement('strong');
     title.className = 'zoroSearchTitle'; title.textContent = item.Name;
@@ -589,6 +591,52 @@
     return card;
   }
 
+  function renderTypedMatches(section,current){
+    if(!section.classList.contains('zoroSearchTyped'))section.classList.add('zoroSearchTyped');if(state.page.classList.contains('zoroSearchBrowsing'))state.page.classList.remove('zoroSearchBrowsing');(section.querySelector('.zoroSearchRetry')||{remove:function(){}}).remove();
+    var heading=section.querySelector('h2'),status=section.querySelector('.zoroSearchStatus'),grid=section.querySelector('.zoroSearchGrid');
+    var controls=section.querySelector('.zoroSearchTypeFilters');
+    if(!controls){
+      controls=document.createElement('div');controls.className='zoroSearchTypeFilters';controls.setAttribute('role','group');controls.setAttribute('aria-label','Search title type');
+      [['all','All'],['Movie','Movies'],['Series','TV shows']].filter(function(t){return t[0]==='all'||current.types.split(',').includes(t[0]);}).forEach(function(t){
+        var b=document.createElement('button');b.type='button';b.className='zoroUxChoice focusable';b.dataset.searchType=t[0];b.textContent=t[1];b.addEventListener('click',function(){if(state.searchType===t[0])return;state.searchType=t[0];ensureTypedResults(false,true);});controls.appendChild(b);
+      });grid.before(controls);
+    }
+    controls.querySelectorAll('button').forEach(function(b){var on=b.dataset.searchType===state.searchType;if(b.getAttribute('aria-pressed')!==String(on))b.setAttribute('aria-pressed',String(on));});
+    var key=current.key+'\n'+state.query+'\n'+state.searchType;
+    if(!state.typed||state.typed.key!==key){ensureTypedResults();return;}
+    var typed=state.typed,matches=typed.items.map(function(item){return {item:item};}),suggested=false;
+    if(!typed.loading&&!typed.error&&!matches.length){
+      matches=rank(state.catalog,state.query).filter(function(m){return state.searchType==='all'||m.item.Type===state.searchType;});suggested=matches.length>0;
+    }
+    var title=suggested?'Suggested matches':'Library results';if(heading.textContent!==title)heading.textContent=title;section.setAttribute('aria-label',title);
+    var message=typed.loading?'Searching your library…':typed.error?'Search couldn’t finish. Try again. Standard search is below.':suggested?'Similar titles from your library. Standard search is below.':matches.length?'':'No matching titles. Try another title or spelling.';
+    if(status.textContent!==message)status.textContent=message;
+    var signature=state.query+'\n'+state.searchType+'\n'+matches.map(function(m){return m.item.Id;}).join('|');
+    if(grid.dataset.typedKey!==signature){
+      var focused=grid.contains(document.activeElement)?(document.activeElement.closest('[data-id]')||{dataset:{}}).dataset.id:null;
+      var fragment=document.createDocumentFragment();matches.forEach(function(m){fragment.appendChild(resultCard(m,current));});grid.replaceChildren(fragment);grid.dataset.typedKey=signature;
+      if(focused){var retained=Array.from(grid.querySelectorAll('[data-id]')).find(function(e){return e.dataset.id===focused;});if(retained)retained.focus({preventScroll:true});}
+    }
+    var more=section.querySelector('.zoroSearchMore');
+    if(typed.more||typed.error){if(!more){more=document.createElement('button');more.type='button';more.className='zoroSearchMore zoroUxChoice focusable';more.addEventListener('click',function(){ensureTypedResults(!!(state.typed||{}).offset,true);});section.appendChild(more);}more.disabled=typed.loading;more.textContent=typed.error?'Try again':typed.loading?'Loading…':'More results';}else if(more)more.remove();
+  }
+  function ensureTypedResults(more,force){
+    var current=account();if(!current||!state.query||state.composing)return;
+    var query=state.query,type=state.searchType,key=current.key+'\n'+query+'\n'+type;
+    if(!more&&(state.typed||{}).key===key&&!force)return;
+    if(more&&((state.typed||{}).key!==key||state.typed.loading))return;
+    var previous=more?state.typed:null,run=++state.typedRun;
+    var typed=state.typed={key:key,items:previous?previous.items:[],offset:previous?previous.offset:0,more:false,loading:true,error:false};
+    if(state.section)renderTypedMatches(state.section,current);
+    var options={SearchTerm:query.slice(0,256),Recursive:true,ParentId:current.parentId||undefined,IncludeItemTypes:type==='all'?current.types:type,StartIndex:typed.offset,Limit:30,SortBy:'SortName',SortOrder:'Ascending',Fields:'Genres,Overview',EnableUserData:true,EnableImageTypes:'Primary,Backdrop,Thumb'};
+    var timer,timeout=new Promise(function(_,reject){timer=root.setTimeout(function(){reject(new Error('Search timeout'));},10000);});
+    Promise.race([Promise.resolve().then(function(){return current.client.getItems(current.userId,options);}),timeout]).then(function(page){
+      if(run!==state.typedRun||(account()||{}).key!==current.key||query!==state.query||type!==state.searchType)return;
+      if(!page||!Array.isArray(page.Items))throw new Error('Search unavailable');
+      var seen=new Set(typed.items.map(function(i){return i.Id;}));page.Items.forEach(function(i){if(i.Id&&!seen.has(i.Id)){seen.add(i.Id);typed.items.push(Object.assign({},i,{ImageTags:i.ImageTags||{}}));}});
+      typed.offset+=page.Items.length;typed.more=page.Items.length>0&&(Number.isFinite(page.TotalRecordCount)?typed.offset<page.TotalRecordCount:page.Items.length>=30);typed.error=false;
+    }).catch(function(){if(run===state.typedRun)typed.error=true;}).finally(function(){root.clearTimeout(timer);if(run===state.typedRun){typed.loading=false;renderMatches();}});
+  }
   function renderMatches() {
     var current = syncAccount();
     if (state.composing || !state.page || !isVisible(state.page)) return;
@@ -600,6 +648,11 @@
     var section = resultSection();
     if (!section) return;
     section.hidden = false;
+    if(state.query){renderTypedMatches(section,current);return;}
+    if(section.classList.contains('zoroSearchTyped')){
+      section.classList.remove('zoroSearchTyped');section.querySelectorAll('.zoroSearchTypeFilters,.zoroSearchMore').forEach(function(e){e.remove();});
+      section.querySelector('.zoroSearchGrid').removeAttribute('data-typed-key');state.resultKey='';state.typedRun++;state.typed=null;
+    }
     var status = section.querySelector('.zoroSearchStatus');
     var browsing = !state.query;
     var matches = browsing ? state.recommendations : rank(state.catalog, state.query);

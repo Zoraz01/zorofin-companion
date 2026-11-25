@@ -24,6 +24,7 @@ const LEAGUES = {
   'soccer/eng.1': { sport: 'soccer', tsdb: '4328' },
   'soccer/eng.2': { sport: 'soccer', tsdb: '4329' },
   'soccer/uefa.champions': { sport: 'soccer', tsdb: '4480' },
+  'soccer/uefa.wchampions': { sport: 'soccer', tsdb: null },
   // Crests only until the photo provider's league id is verified.
   'soccer/eng.w.1': { sport: 'soccer', tsdb: null },
   'soccer/ita.1': { sport: 'soccer', tsdb: null },
@@ -40,6 +41,7 @@ const ALIASES = {
   'soccer/eng.w.1': { tottenham: 'tottenham hotspur' },
   'basketball/nba': { 'la clippers': 'los angeles clippers' },
   'soccer/uefa.champions': { internazionale: 'inter milan', inter: 'inter milan', 'slavia praha': 'slavia prague', 'sporting lisbon': 'sporting cp' },
+  'soccer/uefa.wchampions': { internazionale: 'inter milan', inter: 'inter milan', hacken: 'bk hacken', 'bk haecken': 'bk hacken' },
   'soccer/uefa.europa': { 'union saint gilloise': 'union st gilloise', 'hapoel beer sheva': 'hapoel be er', 'sparta praha': 'sparta prague', celje: 'nk celje' },
   'soccer/uefa.europa.conf': {
     craiova: 'csu craiova', 'crvena zvezda': 'red star belgrade', 'agf aarhus': 'agf', 'inter escaldes': 'inter d escaldes',
