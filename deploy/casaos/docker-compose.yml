@@ -1,0 +1,83 @@
+# CasaOS / ZimaOS app for the Zorofin companion.
+# Format: https://github.com/IceWhaleTech/CasaOS-AppStore (Apps/<Name>/docker-compose.yml).
+name: zorofin-companion
+services:
+  zorofin-companion:
+    image: ghcr.io/zoraz01/zorofin-companion:0.3.0
+    container_name: zorofin-companion
+    restart: unless-stopped
+    network_mode: bridge
+    environment:
+      PUID: $PUID
+      PGID: $PGID
+      TZ: $TZ
+      ZOROFIN_JELLYFIN_URL: ""
+      ZOROFIN_JELLYFIN_API_KEY: ""
+      ZOROFIN_SEERR_URL: ""
+    ports:
+      - target: 9310
+        published: "9310"
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/data
+        target: /data
+    x-casaos:
+      envs:
+        - container: ZOROFIN_JELLYFIN_URL
+          description:
+            en_US: How the companion reaches Jellyfin, for example http://SERVER-IP:8096
+        - container: ZOROFIN_JELLYFIN_API_KEY
+          description:
+            en_US: Optional Jellyfin API key (Dashboard > API Keys) for request alerts, recommendations and Pick Together
+        - container: ZOROFIN_SEERR_URL
+          description:
+            en_US: Optional Seerr or Jellyseerr address, for example http://SERVER-IP:5055
+        - container: PUID
+          description:
+            en_US: User the companion runs as
+        - container: PGID
+          description:
+            en_US: Group the companion runs as
+        - container: TZ
+          description:
+            en_US: Time zone for guide times and sports schedules
+      ports:
+        - container: "9310"
+          description:
+            en_US: Jellyfin reaches the companion on this port. Keep it on your local network.
+      volumes:
+        - container: /data
+          description:
+            en_US: Settings, module data and the generated bridge secret
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: zorofin-companion
+  author: Zoraz01
+  developer: Zoraz01
+  category: Media
+  icon: https://raw.githubusercontent.com/Zoraz01/zorofin-companion/main/web-ui/mark-512.png
+  thumbnail: https://raw.githubusercontent.com/Zoraz01/zorofin-companion/main/web-ui/mark-512.png
+  tagline:
+    en_US: Live TV guide, sports and extras for the Zorofin Jellyfin plugin
+  description:
+    en_US: |
+      Optional companion for the Zorofin Jellyfin plugin. Adds a Live TV guide with channel logos, live sports from your own channels, request alerts, recommendations, Pick Together (a group swipes on their phones and sees the titles everyone liked) and the Zorofin web look.
+
+      Needs Jellyfin with the Zorofin plugin installed (plugin repository: https://raw.githubusercontent.com/Zoraz01/jellyfin-plugin-zorofin/main/manifest.json). Free and open source (AGPL-3.0). Not affiliated with the Jellyfin project.
+  tips:
+    before_install:
+      en_US: |
+        After installing, open this app's log and copy the bridge secret it prints (also saved in the app's data folder as bridge-secret). In Jellyfin, go to Dashboard > Plugins > Zorofin, set Companion URL to http://[this device's IP]:9310 and paste the secret into Companion secret. Switch modules on from that page.
+  title:
+    en_US: Zorofin Companion
+  index: /health
+  port_map: "9310"
+  version: "0.3.0"
+  website: https://zorofin.app/
+  repo: https://github.com/Zoraz01/zorofin-companion
+  support: https://github.com/Zoraz01/zorofin-companion/issues
+  docs: https://github.com/Zoraz01/zorofin-companion/blob/main/deploy/README.md

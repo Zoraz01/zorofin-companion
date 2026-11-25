@@ -1,6 +1,6 @@
 # Zorofin companion
 
-Status: **early (v0.2.0)**, see [CHANGELOG.md](CHANGELOG.md). Modules shipping: `notifications`, `liveTvGuide`, `liveTvSource`, `liveTvStreams`, `sportsEvents`, `recommendations`, `pickTogether`, `webUi`. Image: `ghcr.io/zoraz01/zorofin-companion:latest` (or pin `:0.2.0`).
+Status: **early (v0.3.0)**, see [CHANGELOG.md](CHANGELOG.md). Modules shipping: `notifications`, `liveTvGuide`, `liveTvSource`, `liveTvStreams`, `sportsEvents`, `recommendations`, `pickTogether`, `webUi`. Image: `ghcr.io/zoraz01/zorofin-companion:latest` (or pin `:0.3.0`).
 
 License: AGPL-3.0-only (see [LICENSE](LICENSE)); bundled third-party files are
 listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). "Zorofin" and the
@@ -85,7 +85,8 @@ file named by `<NAME>_FILE` (Docker secrets).
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `ZOROFIN_BRIDGE_SECRET` | required | At least 32 characters. The same value goes in the plugin's settings |
+| `ZOROFIN_BRIDGE_SECRET` | required | At least 32 characters. The same value goes in the plugin's settings. In the image, leaving it (and `_FILE`) unset creates `<data>/bridge-secret` on first start and prints it once in the log |
+| `PUID`, `PGID` | `1000` | Image only: the user and group the companion runs as; the data folder is handed to them at start |
 | `ZOROFIN_SEERR_WEBHOOK_SECRET` | empty | At least 32 characters when set; enables the Seerr webhook |
 | `ZOROFIN_JELLYFIN_URL` | empty | How the companion reaches Jellyfin (for modules that read the library) |
 | `ZOROFIN_JELLYFIN_API_KEY` | empty | A Jellyfin API key for the companion's own read-only calls |
@@ -130,6 +131,10 @@ node --expose-gc --max-semi-space-size=2 tools/memory-bench.js
 To hard-cap it, give the container a limit (`mem_limit: 512m` in Compose or
 `docker run --memory 512m`). Keep it well above the peak the bench reports
 for your guide size.
+
+## Install on a NAS (Unraid, TrueNAS, CasaOS)
+
+Templates and step-by-step instructions are in [deploy/README.md](deploy/README.md).
 
 ## Run with Docker Compose
 
@@ -195,7 +200,7 @@ ZOROFIN_COMPANION_IMAGE=ghcr.io/zoraz01/zorofin-companion:latest
 ZOROFIN_COMPANION_PULL=always
 ```
 
-Pin a version (`:0.2.0`) on servers you don't want updated by surprise, and
+Pin a version (`:0.3.0`) on servers you don't want updated by surprise, and
 roll back by setting the previous version. The package is public (owner
 decision, November 6, 2026), so no login is needed to pull. The image's
 source label points at the public Zoraz01/zorofin-companion repository, but a

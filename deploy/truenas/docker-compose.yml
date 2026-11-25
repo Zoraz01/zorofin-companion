@@ -1,0 +1,25 @@
+# TrueNAS SCALE (24.10 "Electric Eel" or later): Apps > Discover Apps > ⋮ >
+# Install via YAML, paste this file, then change the host path below to a
+# dataset you created for it (for example /mnt/tank/apps/zorofin-companion).
+# TrueNAS apps run as 568:568 ("apps"), which PUID/PGID match.
+services:
+  zorofin-companion:
+    image: ghcr.io/zoraz01/zorofin-companion:0.3.0
+    restart: unless-stopped
+    environment:
+      PUID: "568"
+      PGID: "568"
+      TZ: America/New_York
+      # How the companion reaches Jellyfin, for example http://SERVER-IP:30013
+      ZOROFIN_JELLYFIN_URL: ""
+      # Optional: a Jellyfin API key, and Seerr's address.
+      ZOROFIN_JELLYFIN_API_KEY: ""
+      ZOROFIN_SEERR_URL: ""
+      # Leave empty: the companion creates a bridge secret on first start and
+      # prints it in the app's logs. Paste it into the Zorofin plugin.
+      ZOROFIN_BRIDGE_SECRET: ""
+    ports:
+      # Keep this on your local network; don't forward it to the internet.
+      - "9310:9310"
+    volumes:
+      - /mnt/tank/apps/zorofin-companion:/data

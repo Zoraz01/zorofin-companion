@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>zorofin-companion</Name>
+  <Repository>ghcr.io/zoraz01/zorofin-companion:latest</Repository>
+  <Registry>https://github.com/Zoraz01/zorofin-companion/pkgs/container/zorofin-companion</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Zoraz01/zorofin-companion/issues</Support>
+  <Project>https://github.com/Zoraz01/zorofin-companion</Project>
+  <ReadMe>https://github.com/Zoraz01/zorofin-companion/blob/main/deploy/README.md</ReadMe>
+  <Overview>Optional companion for the Zorofin Jellyfin plugin. Adds a Live TV guide with channel logos, live sports from your own channels, request alerts, recommendations, Pick Together (a group swipes on their phones and sees the titles everyone liked) and the Zorofin web look.&#xD;
+&#xD;
+Install the Zorofin plugin in Jellyfin first (Dashboard, Plugins, Repositories: https://raw.githubusercontent.com/Zoraz01/jellyfin-plugin-zorofin/main/manifest.json). Start this container, open its log and copy the bridge secret it prints (also saved in Appdata as bridge-secret). Then in Jellyfin, Dashboard, Plugins, Zorofin, set Companion URL to http://[this server's IP]:9310 and paste the secret into Companion secret. Every module is switched on and set up from that page.&#xD;
+&#xD;
+Keep port 9310 on your local network only. Free and open source (AGPL-3.0). Not affiliated with the Jellyfin project.</Overview>
+  <Category>MediaServer:Video Tools:</Category>
+  <WebUI/>
+  <TemplateURL>https://raw.githubusercontent.com/Zoraz01/zorofin-companion/main/deploy/unraid/zorofin-companion.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/Zoraz01/zorofin-companion/main/web-ui/mark-512.png</Icon>
+  <ExtraParams>--restart=unless-stopped</ExtraParams>
+  <Requires>The Zorofin plugin installed in Jellyfin.</Requires>
+  <Config Name="Companion port" Target="9310" Default="9310" Mode="tcp" Description="Jellyfin reaches the companion on this port. Keep it on your local network; don't forward it to the internet." Type="Port" Display="always" Required="true" Mask="false">9310</Config>
+  <Config Name="Appdata" Target="/data" Default="/mnt/user/appdata/zorofin-companion" Mode="rw" Description="Settings and module data (small)." Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/zorofin-companion</Config>
+  <Config Name="Bridge secret" Target="ZOROFIN_BRIDGE_SECRET" Default="" Description="Optional. Leave empty and the companion creates one on first start, saves it in Appdata as bridge-secret and prints it in the container log. Or set your own (at least 32 characters, e.g. openssl rand -hex 32). The same value goes in the Zorofin plugin's Companion secret." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Jellyfin URL" Target="ZOROFIN_JELLYFIN_URL" Default="" Description="How the companion reaches Jellyfin, for example http://SERVER-IP:8096 (your server's IP address)." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Jellyfin API key" Target="ZOROFIN_JELLYFIN_API_KEY" Default="" Description="Optional. A Jellyfin API key (Dashboard, API Keys) for modules that read your library: request alerts, recommendations, Pick Together." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Seerr URL" Target="ZOROFIN_SEERR_URL" Default="" Description="Optional. How the companion reaches Seerr or Jellyseerr, for example http://[server IP]:5055." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="Seerr webhook secret" Target="ZOROFIN_SEERR_WEBHOOK_SECRET" Default="" Description="Optional. At least 32 characters. Turns on request-ready alerts from Seerr's webhook." Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="Modules" Target="ZOROFIN_MODULES" Default="" Description="Optional. Leave empty and switch modules on from the Zorofin plugin's Companion settings page in Jellyfin." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="PUID" Target="PUID" Default="99" Description="User the companion runs as." Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Group the companion runs as." Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
+</Container>

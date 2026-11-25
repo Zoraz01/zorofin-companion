@@ -1,6 +1,6 @@
 {
   "name": "zorofin-companion",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "description": "Optional companion service for Zorofin servers. Talks to the Zorofin Jellyfin plugin over a signed HTTP bridge.",

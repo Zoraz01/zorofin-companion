@@ -12,6 +12,9 @@ LABEL org.opencontainers.image.title="Zorofin companion" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
+# su-exec lets the entrypoint drop from root to PUID:PGID (see docker-entrypoint.sh).
+RUN apk add --no-cache su-exec
+
 WORKDIR /app
 COPY package.json ./
 COPY src ./src
@@ -25,9 +28,12 @@ ENV NODE_ENV=production \
     ZOROFIN_COMPANION_BIND=0.0.0.0 \
     ZOROFIN_COMPANION_PORT=9310 \
     ZOROFIN_DATA_DIR=/data
+COPY docker-entrypoint.sh /usr/local/bin/zorofin-entrypoint
 RUN mkdir -p /data && chown node:node /data
-USER node
+# The container starts as root only long enough for the entrypoint to fix the
+# data folder's owner; the companion itself always runs as PUID:PGID.
 VOLUME ["/data"]
 EXPOSE 9310
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:9310/health >/dev/null || exit 1
+ENTRYPOINT ["zorofin-entrypoint"]
 CMD ["node", "src/main.js"]
